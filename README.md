@@ -15,7 +15,7 @@
 ### 🏗️ Descripción General
 **EcoTrace B2B** es una solución de software distribuida y nativa de la nube, diseñada para resolver desafíos complejos en la cadena de suministro. Conecta a empresas generadoras de residuos industriales (cumpliendo con normativas modernas ESG y de economía circular) con flotas de transporte independientes, automatizando la certificación de cumplimiento, la telemetría en tiempo real y los pagos condicionados mediante *Escrow/Factoring* tras la entrega verificada desde dispositivos móviles.
 
-Desarrollado como el proyecto central de ingeniería para la asignatura **Programación Distribuida (PDI74)** en la *Institución Universitaria ITM*, bajo la supervisión arquitectónica del **Prof. Daniel Andrey Villamizar Araque**.
+Desarrollado como el proyecto central de ingeniería para la asignatura **Programación Distribuida (PDI74)** en la *Institución Universitaria ITM*, bajo la supervisión arquitectónica del **Prof. M.Sc.IoT Daniel Andrey Villamizar Araque**.
 
 ---
 
