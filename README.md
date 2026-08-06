@@ -62,7 +62,7 @@ Consulte nuestro [Tablero de Proyectos (Projects Board)](https://github.com/) pa
 ### 🏗️ Overview
 **EcoTrace B2B** is an enterprise-grade distributed SaaS platform designed to solve complex supply chain challenges. It bridges the gap between industrial waste generators (complying with modern ESG and circular economy frameworks) and independent transport fleets, automating compliance certification, real-time telemetry, and conditional escrow/factoring payments upon mobile-verified delivery.
 
-Developed as the core engineering project for the **Distributed Programming (PDI74)** course at *Institución Universitaria ITM*, under the architectural supervision of **Prof. Daniel Andrey Villamizar Araque**.
+Developed as the core engineering project for the **Distributed Programming (PDI74)** course at *Institución Universitaria ITM*, under the architectural supervision of **Prof. M.Sc.IoT Daniel Andrey Villamizar Araque**.
 
 ---
 
