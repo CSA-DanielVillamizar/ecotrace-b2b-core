@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\buildMultiTargeting\EcoTrace.FleetManagement.API.props" />
+</Project>
