@@ -41,6 +41,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddDefaultTokenProviders();
 
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ITenantService, TenantService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IRoleService, RoleService>();

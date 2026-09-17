@@ -3,45 +3,34 @@ using EcoTrace.Identity.Domain.Constants;
 using EcoTrace.Identity.Domain.Models;
 using EcoTrace.Identity.Domain.Interfaces.Repositories;
 using EcoTrace.Identity.Domain.Interfaces.Services;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace EcoTrace.Identity.Domain.UseCases.Services;
 
 public class UserService : IUserService
 {
-    private readonly UserManager<ApplicationUser> _userManager;
-    private readonly RoleManager<ApplicationRole> _roleManager;
+    private readonly IUserRepository _userRepository;
     private readonly ITenantRepository _tenantRepository;
     private readonly ILogger<UserService> _logger;
 
     public UserService(
-        UserManager<ApplicationUser> userManager,
-        RoleManager<ApplicationRole> roleManager,
+        IUserRepository userRepository,
         ITenantRepository tenantRepository,
         ILogger<UserService> logger)
     {
-        _userManager = userManager;
-        _roleManager = roleManager;
+        _userRepository = userRepository;
         _tenantRepository = tenantRepository;
         _logger = logger;
     }
 
     public async Task<List<UserResponse>> GetAllAsync(Guid? tenantId = null, CancellationToken cancellationToken = default)
     {
-        var query = _userManager.Users.AsNoTracking();
-        if (tenantId.HasValue)
-        {
-            query = query.Where(u => u.TenantId == tenantId.Value);
-        }
-
-        var users = await query.ToListAsync(cancellationToken);
+        var users = await _userRepository.GetAllAsync(tenantId, cancellationToken);
         var responses = new List<UserResponse>();
 
         foreach (var user in users)
         {
-            var roles = await _userManager.GetRolesAsync(user);
+            var roles = await _userRepository.GetRolesAsync(user, cancellationToken);
             responses.Add(new UserResponse(
                 user.Id,
                 user.TenantId,
@@ -59,13 +48,13 @@ public class UserService : IUserService
 
     public async Task<UserResponse?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var user = await _userManager.Users.FirstOrDefaultAsync(u => u.Id == id, cancellationToken);
+        var user = await _userRepository.GetByIdAsync(id, cancellationToken);
         if (user is null)
         {
             return null;
         }
 
-        var roles = await _userManager.GetRolesAsync(user);
+        var roles = await _userRepository.GetRolesAsync(user, cancellationToken);
         return new UserResponse(
             user.Id,
             user.TenantId,
@@ -113,10 +102,10 @@ public class UserService : IUserService
             CreatedAt = DateTime.UtcNow
         };
 
-        IdentityResult result;
+        UserOperationResult result;
         try
         {
-            result = await _userManager.CreateAsync(user, request.Password);
+            result = await _userRepository.CreateAsync(user, request.Password, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -126,7 +115,7 @@ public class UserService : IUserService
 
         if (!result.Succeeded)
         {
-            _logger.LogWarning("Identity rechazó la creación del usuario {UserId}: {Errors}", user.Id, string.Join("; ", result.Errors.Select(e => e.Code)));
+            _logger.LogWarning("Identity rechazó la creación del usuario {UserId}: {Errors}", user.Id, string.Join("; ", result.Errors));
             throw new ArgumentException("No se pudo crear el usuario.");
         }
 
@@ -135,11 +124,11 @@ public class UserService : IUserService
         {
             foreach (var role in request.Roles)
             {
-                if (!await _roleManager.RoleExistsAsync(role))
+                if (!await _userRepository.RoleExistsAsync(role, cancellationToken))
                 {
-                    await _roleManager.CreateAsync(new ApplicationRole(role));
+                    await _userRepository.CreateRoleAsync(role, cancellationToken);
                 }
-                await _userManager.AddToRoleAsync(user, role);
+                await _userRepository.AddToRoleAsync(user, role, cancellationToken);
                 rolesAssigned.Add(role);
             }
         }
@@ -158,7 +147,7 @@ public class UserService : IUserService
 
     public async Task<UserResponse?> UpdateAsync(Guid id, UpdateUserRequest request, CancellationToken cancellationToken = default)
     {
-        var user = await _userManager.FindByIdAsync(id.ToString());
+        var user = await _userRepository.GetByIdAsync(id, cancellationToken);
         if (user is null)
         {
             return null;
@@ -174,10 +163,10 @@ public class UserService : IUserService
         user.IsActive = request.IsActive;
         user.UpdatedAt = DateTime.UtcNow;
 
-        IdentityResult result;
+        UserOperationResult result;
         try
         {
-            result = await _userManager.UpdateAsync(user);
+            result = await _userRepository.UpdateAsync(user, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -187,11 +176,11 @@ public class UserService : IUserService
 
         if (!result.Succeeded)
         {
-            _logger.LogWarning("Identity rechazó la actualización del usuario {UserId}: {Errors}", id, string.Join("; ", result.Errors.Select(e => e.Code)));
+            _logger.LogWarning("Identity rechazó la actualización del usuario {UserId}: {Errors}", id, string.Join("; ", result.Errors));
             throw new ArgumentException("No se pudo actualizar el usuario.");
         }
 
-        var roles = await _userManager.GetRolesAsync(user);
+        var roles = await _userRepository.GetRolesAsync(user, cancellationToken);
         return new UserResponse(
             user.Id,
             user.TenantId,
@@ -206,7 +195,7 @@ public class UserService : IUserService
 
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        var user = await _userManager.FindByIdAsync(id.ToString());
+        var user = await _userRepository.GetByIdAsync(id, cancellationToken);
         if (user is null)
         {
             return false;
@@ -216,27 +205,27 @@ public class UserService : IUserService
         user.DeletedAt = DateTime.UtcNow;
         user.IsActive = false;
 
-        var result = await _userManager.UpdateAsync(user);
+        var result = await _userRepository.UpdateAsync(user, cancellationToken);
         return result.Succeeded;
     }
 
     public async Task<bool> AssignRoleAsync(Guid userId, string roleName, CancellationToken cancellationToken = default)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
         if (user is null)
         {
             throw new ArgumentException(ErrorMessages.User.UserNotFound);
         }
 
-        if (!await _roleManager.RoleExistsAsync(roleName))
+        if (!await _userRepository.RoleExistsAsync(roleName, cancellationToken))
         {
-            await _roleManager.CreateAsync(new ApplicationRole(roleName));
+            await _userRepository.CreateRoleAsync(roleName, cancellationToken);
         }
 
-        IdentityResult result;
+        UserOperationResult result;
         try
         {
-            result = await _userManager.AddToRoleAsync(user, roleName);
+            result = await _userRepository.AddToRoleAsync(user, roleName, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -246,7 +235,7 @@ public class UserService : IUserService
 
         if (!result.Succeeded)
         {
-            _logger.LogWarning("Identity rechazó la asignación del rol {RoleName} al usuario {UserId}: {Errors}", roleName, userId, string.Join("; ", result.Errors.Select(e => e.Code)));
+            _logger.LogWarning("Identity rechazó la asignación del rol {RoleName} al usuario {UserId}: {Errors}", roleName, userId, string.Join("; ", result.Errors));
         }
 
         return result.Succeeded;
@@ -254,16 +243,16 @@ public class UserService : IUserService
 
     public async Task<bool> RemoveRoleAsync(Guid userId, string roleName, CancellationToken cancellationToken = default)
     {
-        var user = await _userManager.FindByIdAsync(userId.ToString());
+        var user = await _userRepository.GetByIdAsync(userId, cancellationToken);
         if (user is null)
         {
             throw new ArgumentException(ErrorMessages.User.UserNotFound);
         }
 
-        IdentityResult result;
+        UserOperationResult result;
         try
         {
-            result = await _userManager.RemoveFromRoleAsync(user, roleName);
+            result = await _userRepository.RemoveFromRoleAsync(user, roleName, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -273,7 +262,7 @@ public class UserService : IUserService
 
         if (!result.Succeeded)
         {
-            _logger.LogWarning("Identity rechazó la remoción del rol {RoleName} del usuario {UserId}: {Errors}", roleName, userId, string.Join("; ", result.Errors.Select(e => e.Code)));
+            _logger.LogWarning("Identity rechazó la remoción del rol {RoleName} del usuario {UserId}: {Errors}", roleName, userId, string.Join("; ", result.Errors));
         }
 
         return result.Succeeded;
