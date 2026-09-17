@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "vLdFaP+bIqbrFxNhJeJ6+IbAwqrNYWGQQJE7J0KmIBg=",
+  "Source": "EcoTrace.FleetManagement.API",
+  "BasePath": "_content/EcoTrace.FleetManagement.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

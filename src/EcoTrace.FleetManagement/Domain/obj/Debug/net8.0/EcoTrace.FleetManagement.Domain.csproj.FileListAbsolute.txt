@@ -1,0 +1,12 @@
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\bin\Debug\net8.0\EcoTrace.FleetManagement.Domain.deps.json
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\bin\Debug\net8.0\EcoTrace.FleetManagement.Domain.dll
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\bin\Debug\net8.0\EcoTrace.FleetManagement.Domain.pdb
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\EcoTrace.FleetManagement.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\EcoTrace.FleetManagement.Domain.AssemblyInfoInputs.cache
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\EcoTrace.FleetManagement.Domain.AssemblyInfo.cs
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\EcoTrace.FleetManagement.Domain.csproj.CoreCompileInputs.cache
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\EcoTrace.FleetManagement.Domain.sourcelink.json
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\EcoTrace.FleetManagement.Domain.dll
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\refint\EcoTrace.FleetManagement.Domain.dll
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\EcoTrace.FleetManagement.Domain.pdb
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Domain\obj\Debug\net8.0\ref\EcoTrace.FleetManagement.Domain.dll

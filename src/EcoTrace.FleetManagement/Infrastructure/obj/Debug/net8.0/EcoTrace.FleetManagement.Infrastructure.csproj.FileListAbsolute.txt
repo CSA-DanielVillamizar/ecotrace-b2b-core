@@ -1,0 +1,16 @@
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\bin\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.deps.json
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\bin\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.dll
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\bin\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.pdb
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\bin\Debug\net8.0\EcoTrace.FleetManagement.Domain.dll
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\bin\Debug\net8.0\EcoTrace.FleetManagement.Domain.pdb
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.AssemblyInfo.cs
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.sourcelink.json
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.AE24768A.Up2Date
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.dll
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\refint\EcoTrace.FleetManagement.Infrastructure.dll
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\EcoTrace.FleetManagement.Infrastructure.pdb
+C:\Users\danie\Documents\GitHub\ecotrace-b2b-core\src\EcoTrace.FleetManagement\Infrastructure\obj\Debug\net8.0\ref\EcoTrace.FleetManagement.Infrastructure.dll

@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  fleet-db:
+    image: postgres:16-alpine
+    container_name: ecotrace-fleet-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ECotraceb2b**
+      POSTGRES_DB: EcoTraceFleetDb
+    ports:
+      - "5432:5432"
+    volumes:
+      - fleet-db-data:/var/lib/postgresql/data
+    networks:
+      - ecotrace-network
+
+  fleet-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ecotrace-fleet-api
+    depends_on:
+      - fleet-db
+    ports:
+      - "8080:8080"
+    environment:
+      - ConnectionStrings__FleetDbConnection=Host=fleet-db;Database=EcoTraceFleetDb;Username=postgres;Password=ECotraceb2b**
+    networks:
+      - ecotrace-network
+
+volumes:
+  fleet-db-data:
+
+networks:
+  ecotrace-network:
+    driver: bridge
