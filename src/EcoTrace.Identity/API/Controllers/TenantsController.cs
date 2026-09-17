@@ -1,3 +1,4 @@
+using EcoTrace.Identity.Api.Contracts;
 using EcoTrace.Identity.Domain;
 using EcoTrace.Identity.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
@@ -43,14 +44,24 @@ public class TenantsController : ControllerBase
     {
         var tenant = new Tenant { Id = Guid.NewGuid(), Name = request.Name, TenantType = request.TenantType };
 
-        _dbContext.Tenants.Add(tenant);
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            _dbContext.Tenants.Add(tenant);
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException ex)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Title = "No se pudo crear el tenant.",
+                Detail = "El registro viola una restricción de la base de datos (por ejemplo, un valor duplicado o un campo requerido faltante).",
+                Status = StatusCodes.Status409Conflict,
+                Extensions = { ["error"] = ex.InnerException?.Message ?? ex.Message }
+            });
+        }
 
         var response = new TenantResponse(tenant.Id, tenant.Name, tenant.TenantType);
         return CreatedAtAction(nameof(GetById), new { id = tenant.Id }, response);
     }
 }
 
-public record CreateTenantRequest(string Name, TenantType TenantType);
-
-public record TenantResponse(Guid Id, string Name, TenantType TenantType);

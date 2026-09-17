@@ -1,12 +1,5 @@
 namespace EcoTrace.Identity.Domain;
 
-public enum Role
-{
-    Admin,
-    Supervisor,
-    Conductor
-}
-
 // Cuenta de un usuario; pertenece a exactamente un Tenant (ADR 0001).
 public class User
 {
