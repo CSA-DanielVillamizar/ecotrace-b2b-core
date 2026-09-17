@@ -1,0 +1,44 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{175742A3-5101-494C-91DF-BEA9AB0B1246}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "EcoTrace.Identity", "EcoTrace.Identity", "{384A6006-080D-423C-8477-E4AB2A64DBB5}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcoTrace.Identity.Domain", "src\EcoTrace.Identity\Domain\EcoTrace.Identity.Domain.csproj", "{4C34905C-F02C-4D26-973C-91C1D23ADF3B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcoTrace.Identity.Infrastructure", "src\EcoTrace.Identity\Infrastructure\EcoTrace.Identity.Infrastructure.csproj", "{C1CB9863-D3DC-4013-8216-F9BDB4A3843A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EcoTrace.Identity.Api", "src\EcoTrace.Identity\API\EcoTrace.Identity.Api.csproj", "{35C169CC-2647-4644-9613-84B52AD8EFF3}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4C34905C-F02C-4D26-973C-91C1D23ADF3B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4C34905C-F02C-4D26-973C-91C1D23ADF3B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4C34905C-F02C-4D26-973C-91C1D23ADF3B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4C34905C-F02C-4D26-973C-91C1D23ADF3B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1CB9863-D3DC-4013-8216-F9BDB4A3843A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1CB9863-D3DC-4013-8216-F9BDB4A3843A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1CB9863-D3DC-4013-8216-F9BDB4A3843A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1CB9863-D3DC-4013-8216-F9BDB4A3843A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35C169CC-2647-4644-9613-84B52AD8EFF3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35C169CC-2647-4644-9613-84B52AD8EFF3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35C169CC-2647-4644-9613-84B52AD8EFF3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35C169CC-2647-4644-9613-84B52AD8EFF3}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{384A6006-080D-423C-8477-E4AB2A64DBB5} = {175742A3-5101-494C-91DF-BEA9AB0B1246}
+		{4C34905C-F02C-4D26-973C-91C1D23ADF3B} = {384A6006-080D-423C-8477-E4AB2A64DBB5}
+		{C1CB9863-D3DC-4013-8216-F9BDB4A3843A} = {384A6006-080D-423C-8477-E4AB2A64DBB5}
+		{35C169CC-2647-4644-9613-84B52AD8EFF3} = {384A6006-080D-423C-8477-E4AB2A64DBB5}
+	EndGlobalSection
+EndGlobal
