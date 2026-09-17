@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option csharp_namespace = "EcoTrace.Cargo_Tracking.Grpc";
+
+package cargo_tracking;
+
+service CargoTrackingGrpcService {
+  rpc GetCargoById (GetCargoByIdRequest) returns (GetCargoByIdResponse);
+  rpc ListCargos (ListCargosRequest) returns (ListCargosResponse);
+}
+
+message GetCargoByIdRequest {
+  string id = 1;
+}
+
+message GetCargoByIdResponse {
+  string id = 1;
+  string cargoCode = 2;
+  string status = 3;
+  string origin = 4;
+  string destination = 5;
+  bool found = 6;
+}
+
+message ListCargosRequest {}
+
+message ListCargosResponse {
+  repeated GetCargoByIdResponse cargos = 1;
+}

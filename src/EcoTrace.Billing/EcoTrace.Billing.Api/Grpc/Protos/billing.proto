@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+option csharp_namespace = "EcoTrace.Billing.Grpc";
+
+package billing;
+
+service BillingGrpcService {
+  rpc GetInvoiceById (GetInvoiceByIdRequest) returns (GetInvoiceByIdResponse);
+  rpc ListInvoices (ListInvoicesRequest) returns (ListInvoicesResponse);
+}
+
+message GetInvoiceByIdRequest {
+  string id = 1;
+}
+
+message GetInvoiceByIdResponse {
+  string id = 1;
+  string invoiceNumber = 2;
+  string status = 3;
+  string total = 4;
+  string createdAt = 5;
+  bool found = 6;
+}
+
+message ListInvoicesRequest {}
+
+message ListInvoicesResponse {
+  repeated GetInvoiceByIdResponse invoices = 1;
+}

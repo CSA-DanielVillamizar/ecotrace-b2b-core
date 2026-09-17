@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+option csharp_namespace = "EcoTrace.Identity.Grpc";
+
+package identity;
+
+service IdentityGrpcService {
+  rpc GetUserById (GetUserByIdRequest) returns (GetUserByIdResponse);
+  rpc ListUsers (ListUsersRequest) returns (ListUsersResponse);
+}
+
+message GetUserByIdRequest {
+  string id = 1;
+}
+
+message GetUserByIdResponse {
+  string id = 1;
+  string email = 2;
+  string firstName = 3;
+  string lastName = 4;
+  bool found = 5;
+}
+
+message ListUsersRequest {}
+
+message ListUsersResponse {
+  repeated GetUserByIdResponse users = 1;
+}

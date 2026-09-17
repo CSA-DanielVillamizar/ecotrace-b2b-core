@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  billing-db:
+    image: postgres:17
+    container_name: ecotrace-billing-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ecotrace_billing
+      POSTGRES_USER: billing_user
+      POSTGRES_PASSWORD: 6c30c24e-a2dd-4325-ac42-f35e10d96347
+    ports:
+      - "5433:5432"
+    volumes:
+      - billing_db_data:/var/lib/postgresql/data
+
+  identity-db:
+    image: postgres:17
+    container_name: ecotrace-identity-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ecotrace_identity
+      POSTGRES_USER: identity_user
+      POSTGRES_PASSWORD: a81dfb1b-9ecb-432a-bc91-38148b8132aa
+    ports:
+      - "5434:5432"
+    volumes:
+      - identity_db_data:/var/lib/postgresql/data
+
+  fleet-db:
+    image: postgres:17
+    container_name: ecotrace-fleet-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ecotrace_fleet
+      POSTGRES_USER: fleet_user
+      POSTGRES_PASSWORD: 4f183e9b-381d-444a-9b19-633458bf59c3
+    ports:
+      - "5435:5432"
+    volumes:
+      - fleet_db_data:/var/lib/postgresql/data
+
+  cargo-tracking-db:
+    image: postgres:17
+    container_name: ecotrace-cargo-tracking-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ecotrace_cargo_tracking
+      POSTGRES_USER: cargo_user
+      POSTGRES_PASSWORD: e982fa11-209a-4712-bf9e-76e9812bc854
+    ports:
+      - "5436:5432"
+    volumes:
+      - cargo_tracking_db_data:/var/lib/postgresql/data
+  
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: ecotrace-rabbitmq
+    hostname: ecotrace-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ecotraceusr
+      RABBITMQ_DEFAULT_PASS: ab5f008a-b6ed-48ac-91f2-308cd966b48a
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+volumes:
+  billing_db_data:
+  identity_db_data:
+  fleet_db_data:
+  cargo_tracking_db_data:
+  rabbitmq_data:

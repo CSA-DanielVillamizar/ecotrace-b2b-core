@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+option csharp_namespace = "EcoTrace.FleetManagement.Grpc";
+
+package fleet_management;
+
+service FleetManagementGrpcService {
+  rpc GetVehicleById (GetVehicleByIdRequest) returns (GetVehicleByIdResponse);
+  rpc ListVehicles (ListVehiclesRequest) returns (ListVehiclesResponse);
+}
+
+message GetVehicleByIdRequest {
+  string id = 1;
+}
+
+message GetVehicleByIdResponse {
+  string id = 1;
+  string plate = 2;
+  string status = 3;
+  string model = 4;
+  bool found = 5;
+}
+
+message ListVehiclesRequest {}
+
+message ListVehiclesResponse {
+  repeated GetVehicleByIdResponse vehicles = 1;
+}
