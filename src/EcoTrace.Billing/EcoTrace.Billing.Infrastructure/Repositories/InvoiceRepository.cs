@@ -1,6 +1,6 @@
 using EcoTrace.Billing.Infrastructure.Data;
 using EcoTrace.Billing.Domain.Models;
-using EcoTrace.Billing.Domain.Repositories;
+using EcoTrace.Billing.Domain.Interfaces.Repositories;
 using Microsoft.EntityFrameworkCore;
 
 namespace EcoTrace.Billing.Infrastructure.Repositories;

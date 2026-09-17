@@ -1,5 +1,5 @@
-using EcoTrace.Billing.Domain.Services;
-using EcoTrace.Billing.Domain.DTOs;
+using EcoTrace.Billing.Domain.Interfaces.Services;
+using EcoTrace.Billing.Domain.UseCases.Contracts;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcoTrace.Billing.Api.Controllers;

@@ -1,5 +1,5 @@
-using EcoTrace.Cargo_Tracking.Domain.DTOs;
-using EcoTrace.Cargo_Tracking.Domain.Services;
+using EcoTrace.Cargo_Tracking.Domain.UseCases.Contracts;
+using EcoTrace.Cargo_Tracking.Domain.Interfaces.Services;
 using EcoTrace.Cargo_Tracking.Grpc;
 using Grpc.Core;
 
@@ -41,7 +41,7 @@ public class CargoTrackingGrpcServer : CargoTrackingGrpcService.CargoTrackingGrp
         {
             Id = cargo.Id.ToString(),
             CargoCode = cargo.Description,
-            Status = cargo.Status,
+            Status = cargo.Status.ToString(),
             Origin = cargo.OriginAddress,
             Destination = cargo.DestinationAddress,
             Found = true

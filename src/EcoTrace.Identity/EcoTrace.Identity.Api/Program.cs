@@ -1,12 +1,14 @@
 using EcoTrace.Identity.Api.Grpc;
 using EcoTrace.Identity.Api.ErrorHandling;
 using EcoTrace.Identity.Domain.Models;
-using EcoTrace.Identity.Domain.Repositories;
-using EcoTrace.Identity.Domain.Services;
+using EcoTrace.Identity.Domain.Interfaces.Repositories;
+using EcoTrace.Identity.Domain.Interfaces.Services;
+using EcoTrace.Identity.Domain.UseCases.Services;
 using EcoTrace.Identity.Infrastructure.Data;
 using EcoTrace.Identity.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,7 +16,8 @@ builder.Services.AddGrpc(options =>
 {
     options.Interceptors.Add<GrpcExceptionHandlingInterceptor>();
 });
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddDataProtection();
 

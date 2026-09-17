@@ -1,5 +1,5 @@
-using EcoTrace.Billing.Domain.DTOs;
-using EcoTrace.Billing.Domain.Services;
+using EcoTrace.Billing.Domain.UseCases.Contracts;
+using EcoTrace.Billing.Domain.Interfaces.Services;
 using EcoTrace.Billing.Grpc;
 using Grpc.Core;
 
@@ -41,9 +41,9 @@ public class BillingGrpcServer : BillingGrpcService.BillingGrpcServiceBase
         {
             Id = invoice.Id.ToString(),
             InvoiceNumber = invoice.CargoId.ToString(),
-            Status = "Created",
+            Status = invoice.Status.ToString(),
             Total = invoice.Amount.ToString("0.00"),
-            CreatedAt = invoice.CreatedAt.ToString("O"),
+            CreatedAt = invoice.CreatedAt.ToString("G"),
             Found = true
         };
     }

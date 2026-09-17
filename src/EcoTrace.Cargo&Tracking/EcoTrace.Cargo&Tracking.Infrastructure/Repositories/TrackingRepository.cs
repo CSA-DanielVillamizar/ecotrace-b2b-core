@@ -1,5 +1,5 @@
 using EcoTrace.Cargo_Tracking.Domain.Models;
-using EcoTrace.Cargo_Tracking.Domain.Repositories;
+using EcoTrace.Cargo_Tracking.Domain.Interfaces.Repositories;
 using EcoTrace.Cargo_Tracking.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 

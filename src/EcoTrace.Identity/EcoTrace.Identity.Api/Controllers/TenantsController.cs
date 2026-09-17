@@ -1,5 +1,5 @@
-using EcoTrace.Identity.Domain.DTOs;
-using EcoTrace.Identity.Domain.Services;
+using EcoTrace.Identity.Domain.UseCases.Contracts;
+using EcoTrace.Identity.Domain.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcoTrace.Identity.Api.Controllers;

@@ -1,10 +1,12 @@
 using EcoTrace.Cargo_Tracking.Api.Grpc;
 using EcoTrace.Cargo_Tracking.Api.ErrorHandling;
-using EcoTrace.Cargo_Tracking.Domain.Repositories;
-using EcoTrace.Cargo_Tracking.Domain.Services;
+using EcoTrace.Cargo_Tracking.Domain.Interfaces.Repositories;
+using EcoTrace.Cargo_Tracking.Domain.Interfaces.Services;
+using EcoTrace.Cargo_Tracking.Domain.UseCases.Services;
 using EcoTrace.Cargo_Tracking.Infrastructure.Data;
 using EcoTrace.Cargo_Tracking.Infrastructure.Repositories;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +14,8 @@ builder.Services.AddGrpc(options =>
 {
     options.Interceptors.Add<GrpcExceptionHandlingInterceptor>();
 });
-builder.Services.AddControllers();
+builder.Services.AddControllers().AddJsonOptions(options =>
+    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(allowIntegerValues: false)));
 
 builder.Services.AddDbContext<CargoTrackingDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("CargoTrackingDatabase")));

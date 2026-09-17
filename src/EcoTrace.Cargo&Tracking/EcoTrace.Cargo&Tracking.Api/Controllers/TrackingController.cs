@@ -1,5 +1,5 @@
-using EcoTrace.Cargo_Tracking.Domain.DTOs;
-using EcoTrace.Cargo_Tracking.Domain.Services;
+using EcoTrace.Cargo_Tracking.Domain.UseCases.Contracts;
+using EcoTrace.Cargo_Tracking.Domain.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcoTrace.Cargo_Tracking.Api.Controllers;

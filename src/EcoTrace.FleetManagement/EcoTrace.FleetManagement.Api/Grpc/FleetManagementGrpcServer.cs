@@ -1,5 +1,5 @@
-using EcoTrace.FleetManagement.Domain.DTOs;
-using EcoTrace.FleetManagement.Domain.Services;
+using EcoTrace.FleetManagement.Domain.UseCases.Contracts;
+using EcoTrace.FleetManagement.Domain.Interfaces.Services;
 using EcoTrace.FleetManagement.Grpc;
 using Grpc.Core;
 
@@ -41,7 +41,7 @@ public class FleetManagementGrpcServer : FleetManagementGrpcService.FleetManagem
         {
             Id = vehicle.Id.ToString(),
             Plate = vehicle.PlateNumber,
-            Status = vehicle.Status,
+            Status = vehicle.Status.ToString(),
             Model = vehicle.Model,
             Found = true
         };

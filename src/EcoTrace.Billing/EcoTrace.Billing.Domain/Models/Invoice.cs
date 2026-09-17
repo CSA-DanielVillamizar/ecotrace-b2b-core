@@ -1,3 +1,5 @@
+using EcoTrace.Billing.Domain.Enumerations;
+
 namespace EcoTrace.Billing.Domain.Models;
 
 public class Invoice
@@ -13,6 +15,7 @@ public class Invoice
 
     public decimal Amount { get; set; }
     public string Currency { get; set; } = "COP";
+    public InvoiceStatus Status { get; set; } = InvoiceStatus.Created;
     public DateTime IssuedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool IsDeleted { get; set; }

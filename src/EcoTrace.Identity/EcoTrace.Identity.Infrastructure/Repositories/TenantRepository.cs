@@ -1,5 +1,5 @@
 using EcoTrace.Identity.Domain.Models;
-using EcoTrace.Identity.Domain.Repositories;
+using EcoTrace.Identity.Domain.Interfaces.Repositories;
 using EcoTrace.Identity.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 

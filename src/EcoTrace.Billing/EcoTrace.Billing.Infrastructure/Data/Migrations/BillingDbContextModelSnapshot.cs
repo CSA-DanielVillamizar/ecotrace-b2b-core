@@ -85,6 +85,13 @@ namespace EcoTrace.Billing.Infrastructure.Data.Migrations
                     b.Property<DateTime>("IssuedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Created");
+
                     b.HasKey("Id");
 
                     b.ToTable("invoices", (string)null);

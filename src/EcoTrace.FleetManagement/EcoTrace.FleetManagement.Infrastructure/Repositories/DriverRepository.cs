@@ -1,5 +1,5 @@
 using EcoTrace.FleetManagement.Domain.Models;
-using EcoTrace.FleetManagement.Domain.Repositories;
+using EcoTrace.FleetManagement.Domain.Interfaces.Repositories;
 using EcoTrace.FleetManagement.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 

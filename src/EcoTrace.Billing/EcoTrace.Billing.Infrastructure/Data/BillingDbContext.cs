@@ -21,6 +21,9 @@ public class BillingDbContext : DbContext
             entity.HasKey(i => i.Id);
             entity.Property(i => i.Amount).HasPrecision(18, 2);
             entity.Property(i => i.Currency).HasMaxLength(3).IsRequired();
+            entity.Property(i => i.Status).HasConversion<string>().HasMaxLength(20)
+                .HasDefaultValue(EcoTrace.Billing.Domain.Enumerations.InvoiceStatus.Created)
+                .HasSentinel(EcoTrace.Billing.Domain.Enumerations.InvoiceStatus.Created);
             entity.Property(i => i.IsDeleted).HasDefaultValue(false);
             entity.HasQueryFilter(i => !i.IsDeleted);
         });

@@ -1,5 +1,5 @@
-using EcoTrace.FleetManagement.Domain.DTOs;
-using EcoTrace.FleetManagement.Domain.Services;
+using EcoTrace.FleetManagement.Domain.UseCases.Contracts;
+using EcoTrace.FleetManagement.Domain.Interfaces.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace EcoTrace.FleetManagement.Api.Controllers;
