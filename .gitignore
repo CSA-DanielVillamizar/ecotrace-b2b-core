@@ -1,0 +1,12 @@
+# Carpetas generadas al compilar (no son código fuente)
+bin/
+obj/
+
+# Configuración personal de Visual Studio (distinta para cada persona)
+*.user
+.vs/
+*.suo
+
+# Archivos temporales del sistema operativo
+.DS_Store
+Thumbs.db

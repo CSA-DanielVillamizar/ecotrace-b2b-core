@@ -1,0 +1,6 @@
+@EcoTrace.CargoTracking_HostAddress = http://localhost:5063
+
+GET {{EcoTrace.CargoTracking_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
