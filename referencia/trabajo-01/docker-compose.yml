@@ -1,0 +1,74 @@
+# Levanta los cuatro servicios y la consola. Cada servicio tiene su propio volumen: es la misma
+# separacion de bases de datos que en local, ahora a nivel de contenedor.
+#
+#   docker compose up --build        (consola en http://localhost:5100)
+#   docker compose down -v           (detiene y borra los datos)
+#
+# La consola es una pagina web: el navegador llama a las APIs por los puertos publicados,
+# por eso las URLs que recibe la consola apuntan a localhost y no a los nombres de servicio.
+
+name: ecotrace-referencia
+
+x-servicio: &servicio
+  restart: unless-stopped
+
+services:
+  identity:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.Identity/Api/EcoTrace.Identity.Api.csproj
+        DLL: EcoTrace.Identity.Api.dll
+    ports: ["5101:8080"]
+    volumes: ["identity-data:/app/App_Data"]
+
+  fleet:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.FleetManagement/Api/EcoTrace.FleetManagement.Api.csproj
+        DLL: EcoTrace.FleetManagement.Api.dll
+    ports: ["5102:8080"]
+    volumes: ["fleet-data:/app/App_Data"]
+
+  cargo:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.CargoTracking/Api/EcoTrace.CargoTracking.Api.csproj
+        DLL: EcoTrace.CargoTracking.Api.dll
+    ports: ["5103:8080"]
+    volumes: ["cargo-data:/app/App_Data"]
+
+  billing:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.Billing/Api/EcoTrace.Billing.Api.csproj
+        DLL: EcoTrace.Billing.Api.dll
+    ports: ["5104:8080"]
+    volumes: ["billing-data:/app/App_Data"]
+
+  console:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.Console/EcoTrace.Console.csproj
+        DLL: EcoTrace.Console.dll
+    ports: ["5100:8080"]
+    environment:
+      Servicios__Identity: http://localhost:5101
+      Servicios__FleetManagement: http://localhost:5102
+      Servicios__CargoTracking: http://localhost:5103
+      Servicios__Billing: http://localhost:5104
+
+volumes:
+  identity-data:
+  fleet-data:
+  cargo-data:
+  billing-data:
