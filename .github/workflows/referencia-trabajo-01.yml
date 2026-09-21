@@ -1,0 +1,35 @@
+name: Referencia Trabajo 1
+
+# Compila y prueba la solución de referencia. Solo corre cuando cambia su carpeta.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'referencia/trabajo-01/**'
+      - '.github/workflows/referencia-trabajo-01.yml'
+  pull_request:
+    paths:
+      - 'referencia/trabajo-01/**'
+      - '.github/workflows/referencia-trabajo-01.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: referencia/trabajo-01
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compilar (las advertencias son errores)
+        run: dotnet build EcoTrace.Referencia.sln --configuration Release --nologo
+
+      - name: Pruebas de integración y de arquitectura
+        run: dotnet test EcoTrace.Referencia.sln --configuration Release --no-build --nologo
