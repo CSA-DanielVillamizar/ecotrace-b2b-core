@@ -1,0 +1,147 @@
+# Peticiones de ejemplo para los cuatro servicios.
+# Sirve con Visual Studio 2022, VS Code (extensión REST Client) y Rider.
+#
+# Los identificadores se copian a mano de una respuesta a la siguiente. Es a propósito: entre un
+# servicio y otro solo viaja el identificador, y por eso este archivo no usa variables encadenadas.
+# Ejecute las peticiones en orden y pegue cada identificador en la variable que corresponde.
+
+@identity = http://localhost:5101
+@fleet = http://localhost:5102
+@cargo = http://localhost:5103
+@billing = http://localhost:5104
+
+# Identificadores: reemplácelos por los que devuelvan las respuestas.
+@generadorId = pegue-aqui-el-tenantId-del-generador
+@transportistaId = pegue-aqui-el-tenantId-del-transportista
+@usuarioId = pegue-aqui-el-userId-del-supervisor
+@vehiculoId = pegue-aqui-el-vehiculoId
+@conductorId = pegue-aqui-el-conductorId
+@cargaId = pegue-aqui-el-cargaId
+@pagoId = pegue-aqui-el-pagoId
+
+
+### 1. Identity: organización generadora
+POST {{identity}}/api/tenants
+Content-Type: application/json
+
+{ "nombre": "Generadora del Valle S.A.", "tenantType": "Generador" }
+
+### 2. Identity: organización transportista
+POST {{identity}}/api/tenants
+Content-Type: application/json
+
+{ "nombre": "Transportes del Cauca", "tenantType": "Transportista" }
+
+### 3. Identity: supervisor del transportista
+POST {{identity}}/api/users
+Content-Type: application/json
+
+{
+  "tenantId": "{{transportistaId}}",
+  "role": "Supervisor",
+  "nombre": "Marta Ríos",
+  "email": "marta@transportescauca.co"
+}
+
+### Identity: roles y permisos sembrados por la migración
+GET {{identity}}/api/roles
+
+
+### 4. Fleet Management: vehículo (solo recibe los identificadores de Identity)
+POST {{fleet}}/api/vehiculos
+Content-Type: application/json
+
+{
+  "tenantId": "{{transportistaId}}",
+  "registradoPorUserId": "{{usuarioId}}",
+  "placa": "ABC123",
+  "capacidadKg": 8000
+}
+
+### 5. Fleet Management: conductor
+POST {{fleet}}/api/conductores
+Content-Type: application/json
+
+{
+  "tenantId": "{{transportistaId}}",
+  "registradoPorUserId": "{{usuarioId}}",
+  "nombre": "Carlos Ruiz",
+  "licencia": "C2-123456"
+}
+
+
+### 6. Cargo & Tracking: carga (dos organizaciones, ambas por identificador)
+POST {{cargo}}/api/cargas
+Content-Type: application/json
+
+{
+  "generadorTenantId": "{{generadorId}}",
+  "transportistaTenantId": "{{transportistaId}}",
+  "descripcion": "Residuos industriales no peligrosos",
+  "origen": "Cali",
+  "destino": "Popayán",
+  "pesoKg": 4200
+}
+
+### 7. Cargo & Tracking: asignar vehículo y conductor (identificadores de Fleet Management)
+POST {{cargo}}/api/cargas/{{cargaId}}/asignacion
+Content-Type: application/json
+
+{ "vehiculoId": "{{vehiculoId}}", "conductorId": "{{conductorId}}" }
+
+### 8. Cargo & Tracking: en tránsito
+POST {{cargo}}/api/cargas/{{cargaId}}/seguimientos
+Content-Type: application/json
+
+{ "estado": "EnTransito", "ubicacion": "Santander de Quilichao" }
+
+### 9. Cargo & Tracking: entregada
+POST {{cargo}}/api/cargas/{{cargaId}}/seguimientos
+Content-Type: application/json
+
+{ "estado": "Entregado", "ubicacion": "Popayán" }
+
+### Cargo & Tracking: saltarse un estado devuelve 409 (pruebe con una carga en Asignado)
+POST {{cargo}}/api/cargas/{{cargaId}}/seguimientos
+Content-Type: application/json
+
+{ "estado": "Entregado", "ubicacion": "Popayán" }
+
+
+### 10. Billing & Escrow: pago en custodia (identificadores de Identity y de Cargo & Tracking)
+POST {{billing}}/api/pagos
+Content-Type: application/json
+
+{
+  "generadorTenantId": "{{generadorId}}",
+  "transportistaTenantId": "{{transportistaId}}",
+  "cargaId": "{{cargaId}}",
+  "monto": 850000
+}
+
+### 11. Billing & Escrow: liberar el pago
+POST {{billing}}/api/pagos/{{pagoId}}/liberar
+
+### Billing & Escrow: liberarlo otra vez devuelve 409
+POST {{billing}}/api/pagos/{{pagoId}}/liberar
+
+### Billing & Escrow: historial de auditoría
+GET {{billing}}/api/pagos/{{pagoId}}/auditoria
+
+### 12. Billing & Escrow: factura
+POST {{billing}}/api/facturas
+Content-Type: application/json
+
+{
+  "generadorTenantId": "{{generadorId}}",
+  "transportistaTenantId": "{{transportistaId}}",
+  "cargaId": "{{cargaId}}",
+  "monto": 850000
+}
+
+
+### Cada servicio describe su modelo y sus referencias externas por ID
+GET {{identity}}/api/_meta/contexto
+
+### Estado del servicio
+GET {{identity}}/health
