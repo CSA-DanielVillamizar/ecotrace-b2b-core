@@ -113,6 +113,7 @@ Autenticación, comunicación entre servicios, mensajería y Saga se construyen 
 
 ## Documentos
 
+- [Trabajo 2: especificación de los contratos](docs/trabajo-02/especificacion.md) y [verificación](docs/trabajo-02/verificacion.http)
 - [Decisiones de diseño](docs/decisiones-de-diseno.md)
 - [Guía de marca y de interfaz](docs/brand/README.md)
 - [Peticiones de ejemplo](docs/requests.http)
