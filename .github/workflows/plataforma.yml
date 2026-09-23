@@ -1,0 +1,35 @@
+name: Plataforma
+
+# Compila y prueba la base común del semestre. Solo corre cuando cambia su carpeta.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'plataforma/**'
+      - '.github/workflows/plataforma.yml'
+  pull_request:
+    paths:
+      - 'plataforma/**'
+      - '.github/workflows/plataforma.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: plataforma
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compilar (las advertencias son errores)
+        run: dotnet build EcoTrace.sln --configuration Release --nologo
+
+      - name: Pruebas de integración y de arquitectura
+        run: dotnet test EcoTrace.sln --configuration Release --no-build --nologo
