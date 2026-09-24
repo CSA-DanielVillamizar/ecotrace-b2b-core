@@ -32,6 +32,12 @@ public sealed partial class Conductor
 
     public DateTime CreadoEn { get; private set; }
 
+    /// <summary>Disponible mientras no esté reservado para una carga.</summary>
+    public EstadoRecurso Estado { get; private set; }
+
+    [ReferenciaExterna("CargoTracking", "Carga para la que está reservado el conductor")]
+    public Guid? ReservadoParaCargaId { get; private set; }
+
     public static Conductor Crear(
         Guid tenantId, Guid registradoPorUserId, Guid? userId, string? nombre, string? licencia, DateTime ahoraUtc)
     {
@@ -66,8 +72,57 @@ public sealed partial class Conductor
             UserId = userId == Guid.Empty ? null : userId,
             Nombre = nombreLimpio,
             Licencia = licenciaNormalizada,
-            CreadoEn = ahoraUtc
+            CreadoEn = ahoraUtc,
+            Estado = EstadoRecurso.Disponible
         };
+    }
+
+    /// <summary>
+    /// Reserva al conductor para una carga. Devuelve true solo si el estado cambió: reservarlo otra
+    /// vez para la misma carga no hace nada, y es lo que permite responder 200 en lugar de 201.
+    /// </summary>
+    public bool Reservar(Guid cargaId)
+    {
+        if (cargaId == Guid.Empty)
+        {
+            throw DomainException.Validation("La carga es obligatoria para reservar al conductor.");
+        }
+
+        if (Estado == EstadoRecurso.Reservado)
+        {
+            // Ya reservado para esta misma carga: no hay nada que hacer. Para otra: no se le quita.
+            if (ReservadoParaCargaId == cargaId)
+            {
+                return false;
+            }
+
+            throw DomainException.Conflict("El conductor ya está reservado para otra carga.");
+        }
+
+        Estado = EstadoRecurso.Reservado;
+        ReservadoParaCargaId = cargaId;
+        return true;
+    }
+
+    /// <summary>
+    /// Libera al conductor de una carga. Liberar uno que ya está disponible devuelve false sin
+    /// tocar nada: Billing reintenta esta orden hasta cuatro veces y ninguna puede fallar.
+    /// </summary>
+    public bool Liberar(Guid cargaId)
+    {
+        if (Estado == EstadoRecurso.Disponible)
+        {
+            return false;
+        }
+
+        if (ReservadoParaCargaId != cargaId)
+        {
+            throw DomainException.Conflict("El conductor está reservado para otra carga.");
+        }
+
+        Estado = EstadoRecurso.Disponible;
+        ReservadoParaCargaId = null;
+        return true;
     }
 
     [GeneratedRegex("^[A-Z0-9-]{4,20}$")]
