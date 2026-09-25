@@ -31,7 +31,7 @@ public static class ApiDefaults
             .Enrich.FromLogContext()
             .Enrich.WithProperty("Servicio", servicio)
             .WriteTo.Console(outputTemplate:
-                "[{Timestamp:HH:mm:ss} {Level:u3}] {Servicio} | {Message:lj}{NewLine}{Exception}"));
+                "[{Timestamp:HH:mm:ss} {Level:u3}] {Servicio} {CorrelationId} | {Message:lj}{NewLine}{Exception}"));
 
         // La cadena de conexion se resuelve al primer uso (no al registrar), para que las
         // pruebas de integracion puedan reemplazarla con su propia base temporal.
