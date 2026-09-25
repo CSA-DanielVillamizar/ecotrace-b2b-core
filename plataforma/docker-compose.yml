@@ -32,6 +32,9 @@ services:
         DLL: EcoTrace.FleetManagement.Api.dll
     ports: ["5102:8080"]
     volumes: ["fleet-data:/app/App_Data"]
+    # Las rutas de fallo simulado solo existen con esto encendido; sirven para la demo del Saga.
+    environment:
+      Simulacion__Habilitada: "true"
 
   cargo:
     <<: *servicio
