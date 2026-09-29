@@ -33,4 +33,26 @@ public static class SaveChangesExtensions
             throw DomainException.Conflict(mensajeSiDuplicado);
         }
     }
+
+    /// <summary>
+    /// Igual que <see cref="GuardarAsync"/>, pero para el caso de una carrera legitima (dos
+    /// solicitudes concurrentes intentando crear el mismo recurso unico): en vez de lanzar un
+    /// conflicto, devuelve false para que quien pierda la carrera pueda responder con el
+    /// resultado de quien gano, en lugar de un error.
+    /// </summary>
+    public static async Task<bool> IntentarGuardarAsync(this DbContext db, CancellationToken ct = default)
+    {
+        try
+        {
+            await db.SaveChangesAsync(ct);
+            return true;
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqliteException
+        {
+            SqliteExtendedErrorCode: PrimaryKeyViolation or UniqueViolation
+        })
+        {
+            return false;
+        }
+    }
 }

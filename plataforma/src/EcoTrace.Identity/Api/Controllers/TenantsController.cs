@@ -48,4 +48,46 @@ public sealed class TenantsController(IdentityDbContext db, TimeProvider reloj) 
 
         return TenantResponse.De(tenant);
     }
+
+    /// <summary>Fuente autoritativa del estado: nadie mueve dinero basándose en una copia local (Trabajo 2).</summary>
+    [HttpGet("{id:guid}/estado")]
+    [ProducesResponseType<TenantEstadoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TenantEstadoResponse>> ObtenerEstado(Guid id, CancellationToken ct)
+    {
+        var tenant = await db.Tenants.AsNoTracking().FirstOrDefaultAsync(t => t.TenantId == id, ct)
+            ?? throw DomainException.NotFound("No existe una organización con ese identificador.");
+
+        return TenantEstadoResponse.De(tenant);
+    }
+
+    /// <summary>Idempotente: repetirla responde 200 sin cambios ni subir la versión.</summary>
+    [HttpPost("{id:guid}/suspension")]
+    [ProducesResponseType<TenantEstadoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TenantEstadoResponse>> Suspender(Guid id, CancellationToken ct)
+    {
+        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.TenantId == id, ct)
+            ?? throw DomainException.NotFound("No existe una organización con ese identificador.");
+
+        tenant.Suspender();
+        await db.GuardarAsync("La organización cambió mientras se procesaba la solicitud.", ct);
+
+        return TenantEstadoResponse.De(tenant);
+    }
+
+    /// <summary>Idempotente: repetirla responde 200 sin cambios ni subir la versión.</summary>
+    [HttpPost("{id:guid}/reactivacion")]
+    [ProducesResponseType<TenantEstadoResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TenantEstadoResponse>> Reactivar(Guid id, CancellationToken ct)
+    {
+        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.TenantId == id, ct)
+            ?? throw DomainException.NotFound("No existe una organización con ese identificador.");
+
+        tenant.Reactivar();
+        await db.GuardarAsync("La organización cambió mientras se procesaba la solicitud.", ct);
+
+        return TenantEstadoResponse.De(tenant);
+    }
 }

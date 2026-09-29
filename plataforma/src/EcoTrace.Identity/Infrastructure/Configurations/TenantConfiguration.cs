@@ -13,6 +13,8 @@ internal sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(t => t.TenantId).ValueGeneratedNever();
         builder.Property(t => t.Nombre).HasMaxLength(120).IsRequired();
         builder.Property(t => t.TenantType).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(t => t.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(t => t.Version).IsRequired();
         builder.Property(t => t.CreadoEn).IsRequired();
     }
 }
