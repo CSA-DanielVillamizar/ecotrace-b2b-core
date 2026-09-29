@@ -117,16 +117,28 @@ public sealed class ArquitecturaTests
         }
     }
 
+    /// <summary>
+    /// Con el Trabajo 2 (Saga "Liberar Pago en Escrow", ADR 0003) Identity deja de ser un
+    /// dominio sin referencias externas: AutorizacionPago.PagoId apunta a Billing porque el
+    /// paso 1 del Saga autoriza un pago que vive en ese contexto. Es la unica excepcion
+    /// permitida - ninguna otra propiedad de Identity puede declarar [ReferenciaExterna].
+    /// </summary>
     [Fact]
-    public void Identity_es_el_dominio_base_y_no_referencia_a_nadie()
+    public void Identity_solo_referencia_el_PagoId_de_Billing_para_autorizar_pagos()
     {
         var modelo = Modelos().Single(m => (string)m[0] == "Identity")[1] as IModel;
 
         var referencias = modelo!.GetEntityTypes()
             .SelectMany(e => e.ClrType.GetProperties())
-            .Where(TieneReferenciaExterna);
+            .Where(TieneReferenciaExterna)
+            .ToArray();
 
-        Assert.Empty(referencias);
+        var referencia = Assert.Single(referencias);
+        Assert.Equal(nameof(EcoTrace.Identity.Domain.AutorizacionPago.PagoId), referencia.Name);
+
+        var atributo = referencia.GetCustomAttributes().First(a => a.GetType().Name == "ReferenciaExternaAttribute");
+        var contexto = (string)atributo.GetType().GetProperty("Contexto")!.GetValue(atributo)!;
+        Assert.Equal("Billing", contexto);
     }
 
     [Fact]

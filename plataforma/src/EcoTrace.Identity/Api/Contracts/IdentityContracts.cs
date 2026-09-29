@@ -15,10 +15,33 @@ public sealed record CrearTenantRequest
     public TenantType? TenantType { get; init; }
 }
 
-public sealed record TenantResponse(Guid TenantId, string Nombre, TenantType TenantType, DateTime CreadoEn)
+public sealed record TenantResponse(Guid TenantId, string Nombre, TenantType TenantType, EstadoTenant Estado, int Version, DateTime CreadoEn)
 {
     public static TenantResponse De(Tenant tenant) =>
-        new(tenant.TenantId, tenant.Nombre, tenant.TenantType, tenant.CreadoEn);
+        new(tenant.TenantId, tenant.Nombre, tenant.TenantType, tenant.Estado, tenant.Version, tenant.CreadoEn);
+}
+
+public sealed record TenantEstadoResponse(Guid TenantId, EstadoTenant Estado, int Version)
+{
+    public static TenantEstadoResponse De(Tenant tenant) =>
+        new(tenant.TenantId, tenant.Estado, tenant.Version);
+}
+
+public sealed record AutorizarPagoRequest
+{
+    [Required]
+    public Guid? PagoId { get; init; }
+
+    [Required]
+    public Guid? TenantId { get; init; }
+}
+
+public sealed record AutorizacionPagoResponse(
+    Guid AutorizacionId, Guid PagoId, Guid TenantId, EstadoAutorizacion Estado, DateTime CreadoEn, DateTime ActualizadoEn)
+{
+    public static AutorizacionPagoResponse De(AutorizacionPago autorizacion) => new(
+        autorizacion.AutorizacionId, autorizacion.PagoId, autorizacion.TenantId,
+        autorizacion.Estado, autorizacion.CreadoEn, autorizacion.ActualizadoEn);
 }
 
 public sealed record CrearUserRequest

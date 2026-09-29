@@ -17,6 +17,11 @@ public sealed class Tenant
 
     public TenantType TenantType { get; private set; }
 
+    public EstadoTenant Estado { get; private set; } = EstadoTenant.Activo;
+
+    /// <summary>Sube solo cuando Estado cambia de verdad (Trabajo 2: contrato de la especificacion).</summary>
+    public int Version { get; private set; } = 1;
+
     public DateTime CreadoEn { get; private set; }
 
     public static Tenant Crear(string? nombre, TenantType tenantType, DateTime ahoraUtc)
@@ -39,5 +44,43 @@ public sealed class Tenant
             TenantType = tenantType,
             CreadoEn = ahoraUtc
         };
+    }
+
+    /// <summary>Idempotente: si ya estaba Suspendido, no cambia nada ni sube la version.</summary>
+    public void Suspender()
+    {
+        if (Estado == EstadoTenant.Suspendido)
+        {
+            return;
+        }
+
+        Estado = EstadoTenant.Suspendido;
+        Version++;
+    }
+
+    /// <summary>Idempotente: si ya estaba Activo, no cambia nada ni sube la version.</summary>
+    public void Reactivar()
+    {
+        if (Estado == EstadoTenant.Activo)
+        {
+            return;
+        }
+
+        Estado = EstadoTenant.Activo;
+        Version++;
+    }
+
+    /// <summary>Regla del paso 1 del Saga (ADR 0003): una organizacion suspendida no puede autorizar pagos nuevos.</summary>
+    public void AsegurarPuedeAutorizarPago()
+    {
+        if (TenantType != TenantType.Transportista)
+        {
+            throw DomainException.Validation("Solo un Transportista puede autorizar un pago.");
+        }
+
+        if (Estado == EstadoTenant.Suspendido)
+        {
+            throw DomainException.Conflict("La organización está suspendida y no puede autorizar pagos.");
+        }
     }
 }

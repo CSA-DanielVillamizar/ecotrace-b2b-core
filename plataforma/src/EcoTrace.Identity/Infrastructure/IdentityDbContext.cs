@@ -17,6 +17,8 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<RoleClaim> RoleClaims => Set<RoleClaim>();
 
+    public DbSet<AutorizacionPago> AutorizacionesPago => Set<AutorizacionPago>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();
