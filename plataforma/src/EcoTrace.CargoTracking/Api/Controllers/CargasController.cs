@@ -88,9 +88,46 @@ public sealed class CargasController(CargoTrackingDbContext db, TimeProvider rel
         var carga = await CargarAsync(id, tracking: true, ct);
         carga.RegistrarSeguimiento(
             solicitud.Estado!.Value, solicitud.Ubicacion, solicitud.Nota, reloj.GetUtcNow().UtcDateTime);
+
+        // Si la carga queda Entregada, guardar el mensaje en el Outbox en la misma transacción.
+        if (solicitud.Estado == EstadoCarga.Entregado)
+        {
+            var correlationId = ObtenerCorrelationId();
+            var existeMensaje = await db.OutboxMessages.AnyAsync(m => m.CargaId == id, ct);
+            if (existeMensaje)
+            {
+                throw DomainException.Conflict("Ya existe un mensaje de entrega confirmada para esta carga.");
+            }
+
+            var mensaje = OutboxMessage.CrearEntregaConfirmada(
+                carga.CargaId,
+                carga.Asignacion!.VehiculoId,
+                carga.Asignacion.ConductorId,
+                carga.GeneradorTenantId,
+                carga.TransportistaTenantId,
+                correlationId,
+                reloj.GetUtcNow().UtcDateTime);
+
+            db.OutboxMessages.Add(mensaje);
+        }
+
         await db.GuardarAsync("No se pudo registrar el seguimiento.", ct);
 
         return CreatedAtAction(nameof(Obtener), new { id }, CargaDetalleResponse.De(carga));
+    }
+
+    private string ObtenerCorrelationId()
+    {
+        var correlationId = Request.Headers["X-Correlation-Id"].FirstOrDefault();
+
+        if (!string.IsNullOrWhiteSpace(correlationId) &&
+            correlationId.Length <= 64 &&
+            correlationId.All(c => char.IsLetterOrDigit(c) || c is '-' or '_'))
+        {
+            return correlationId;
+        }
+
+        return Guid.NewGuid().ToString();
     }
 
     /// <summary>Línea de tiempo de la carga, del evento más antiguo al más reciente.</summary>

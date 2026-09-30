@@ -1,8 +1,13 @@
 using EcoTrace.CargoTracking.Api.Extensions;
 using EcoTrace.CargoTracking.Infrastructure;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddApiDefaults<CargoTrackingDbContext>("CargoTracking", "cargotracking.db");
+builder.Services.AddDbContextFactory<CargoTrackingDbContext>();
+
+builder.Services.AddHttpClient();
+builder.Services.AddHostedService<OutboxPublisher>();
 
 var app = builder.Build();
 app.ApplyMigrations<CargoTrackingDbContext>();
