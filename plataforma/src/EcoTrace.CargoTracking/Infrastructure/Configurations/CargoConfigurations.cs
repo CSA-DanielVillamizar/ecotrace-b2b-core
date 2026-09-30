@@ -84,7 +84,7 @@ internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<Outb
         builder.Property(m => m.UltimoError).HasMaxLength(500);
         builder.Property(m => m.Error).HasMaxLength(500);
         builder.Property(m => m.CreadoEn).IsRequired();
-        builder.HasIndex(m => m.CargaId);
+        builder.HasIndex(m => m.CargaId).IsUnique();
         builder.HasIndex(m => m.Estado);
         builder.HasIndex(m => m.ProximoIntentoEn);
 
