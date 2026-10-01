@@ -63,3 +63,68 @@ public sealed record FacturaResponse(
     public static FacturaResponse De(Factura f) =>
         new(f.FacturaId, f.Numero, f.CargaId, f.GeneradorTenantId, f.TransportistaTenantId, f.Monto, f.EmitidaEn);
 }
+
+public sealed record EntregaConfirmadaRequest
+{
+    [Required, MaxLength(128)]
+    public string? EventId { get; init; }
+
+    [Required, MaxLength(50)]
+    public string? EventType { get; init; }
+
+    public DateTimeOffset? OccurredAt { get; init; }
+
+    [Required]
+    public Guid? CargaId { get; init; }
+
+    [Required]
+    public Guid? VehiculoId { get; init; }
+
+    [Required]
+    public Guid? ConductorId { get; init; }
+
+    [Required]
+    public Guid? GeneradorTenantId { get; init; }
+
+    [Required]
+    public Guid? TransportistaTenantId { get; init; }
+
+    public string? CorrelationId { get; init; }
+}
+
+public sealed record EventoAceptadoResponse(string Resultado, Guid SagaId);
+
+public sealed record EventoDuplicadoResponse(string Resultado);
+
+public sealed record PasoSagaResponse(
+    int Orden,
+    string Nombre,
+    bool Compensable,
+    EstadoPasoSaga Estado,
+    int Intentos,
+    int IntentosCompensacion,
+    string? Detalle)
+{
+    public static PasoSagaResponse De(PasoSaga paso) => new(
+        paso.Orden, paso.Nombre, paso.Compensable, paso.Estado,
+        paso.Intentos, paso.IntentosCompensacion, paso.Detalle);
+}
+
+public sealed record SagaResponse(
+    Guid SagaId,
+    Guid PagoId,
+    Guid CargaId,
+    EstadoSaga Estado,
+    string? Motivo,
+    string CorrelationId,
+    IReadOnlyList<PasoSagaResponse> Pasos)
+{
+    public static SagaResponse De(SagaLiberacionPago saga) => new(
+        saga.SagaId,
+        saga.PagoId,
+        saga.CargaId,
+        saga.Estado,
+        saga.Motivo,
+        saga.CorrelationId,
+        saga.Pasos.OrderBy(p => p.Orden).Select(PasoSagaResponse.De).ToList());
+}

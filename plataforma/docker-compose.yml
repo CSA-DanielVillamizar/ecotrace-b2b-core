@@ -42,6 +42,8 @@ services:
         DLL: EcoTrace.CargoTracking.Api.dll
     ports: ["5103:8080"]
     volumes: ["cargo-data:/app/App_Data"]
+    environment:
+      Billing__Url: http://billing:8080
 
   billing:
     <<: *servicio
@@ -52,6 +54,9 @@ services:
         DLL: EcoTrace.Billing.Api.dll
     ports: ["5104:8080"]
     volumes: ["billing-data:/app/App_Data"]
+    environment:
+      Identity__Url: http://identity:8080
+      FleetManagement__Url: http://fleet:8080
 
   console:
     <<: *servicio

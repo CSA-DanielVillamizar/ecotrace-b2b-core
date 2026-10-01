@@ -77,3 +77,60 @@ internal sealed class AuditoriaFinancieraConfiguration : IEntityTypeConfiguratio
         builder.HasIndex(a => a.PagoId);
     }
 }
+
+internal sealed class SagaLiberacionPagoConfiguration : IEntityTypeConfiguration<SagaLiberacionPago>
+{
+    public void Configure(EntityTypeBuilder<SagaLiberacionPago> builder)
+    {
+        builder.ToTable("SagasLiberacionPago");
+        builder.HasKey(s => s.SagaId);
+        builder.Property(s => s.SagaId).ValueGeneratedNever();
+        builder.Property(s => s.Estado).HasConversion<string>().HasMaxLength(30).IsRequired();
+        builder.Property(s => s.Motivo).HasMaxLength(500);
+        builder.Property(s => s.CorrelationId).HasMaxLength(64).IsRequired();
+        builder.Property(s => s.Version).IsConcurrencyToken();
+        builder.Property(s => s.LeaseToken).HasMaxLength(32);
+        builder.Property(s => s.CreadaEn).IsRequired();
+        builder.Property(s => s.ActualizadaEn).IsRequired();
+
+        builder.HasIndex(s => s.PagoId).IsUnique();
+        builder.HasIndex(s => s.Estado);
+        builder.HasOne<Pago>().WithMany().HasForeignKey(s => s.PagoId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(s => s.Pasos)
+            .WithOne()
+            .HasForeignKey(p => p.SagaId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(s => s.Pasos).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+internal sealed class PasoSagaConfiguration : IEntityTypeConfiguration<PasoSaga>
+{
+    public void Configure(EntityTypeBuilder<PasoSaga> builder)
+    {
+        builder.ToTable("PasosSaga");
+        builder.HasKey(p => p.PasoSagaId);
+        builder.Property(p => p.PasoSagaId).ValueGeneratedNever();
+        builder.Property(p => p.Nombre).HasMaxLength(40).IsRequired();
+        builder.Property(p => p.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(p => p.Detalle).HasMaxLength(500);
+        builder.HasIndex(p => new { p.SagaId, p.Orden }).IsUnique();
+    }
+}
+
+internal sealed class EventoEntregaConfirmadaConfiguration : IEntityTypeConfiguration<EventoEntregaConfirmada>
+{
+    public void Configure(EntityTypeBuilder<EventoEntregaConfirmada> builder)
+    {
+        builder.ToTable("EventosEntregaConfirmada");
+        builder.HasKey(e => e.EventId);
+        builder.Property(e => e.EventId).HasMaxLength(128).ValueGeneratedNever();
+        builder.Property(e => e.EventType).HasMaxLength(50).IsRequired();
+        builder.Property(e => e.CorrelationId).HasMaxLength(64).IsRequired();
+        builder.Property(e => e.OccurredAt);
+        builder.Property(e => e.RecibidoEn).IsRequired();
+        builder.HasIndex(e => e.SagaId).IsUnique();
+        builder.HasOne<SagaLiberacionPago>().WithOne().HasForeignKey<EventoEntregaConfirmada>(e => e.SagaId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
