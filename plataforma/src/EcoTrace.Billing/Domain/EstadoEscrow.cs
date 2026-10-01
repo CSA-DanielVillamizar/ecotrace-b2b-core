@@ -5,5 +5,6 @@ public enum EstadoEscrow
 {
     EnCustodia = 1,
     Liberado = 2,
-    Reembolsado = 3
+    Reembolsado = 3,
+    EnDisputa = 4
 }

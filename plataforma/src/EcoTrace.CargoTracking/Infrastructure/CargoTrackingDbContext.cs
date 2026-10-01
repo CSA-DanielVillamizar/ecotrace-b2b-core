@@ -16,6 +16,8 @@ public sealed class CargoTrackingDbContext(DbContextOptions<CargoTrackingDbConte
 
     public DbSet<Seguimiento> Seguimientos => Set<Seguimiento>();
 
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();

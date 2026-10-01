@@ -2,6 +2,7 @@ using EcoTrace.CargoTracking.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
+
 namespace EcoTrace.CargoTracking.Infrastructure.Configurations;
 
 internal sealed class CargaConfiguration : IEntityTypeConfiguration<Carga>
@@ -68,5 +69,29 @@ internal sealed class SeguimientoConfiguration : IEntityTypeConfiguration<Seguim
         builder.Property(s => s.Nota).HasMaxLength(300);
         builder.Property(s => s.RegistradoEn).IsRequired();
         builder.HasIndex(s => s.CargaId);
+    }
+}
+
+internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
+{
+    public void Configure(EntityTypeBuilder<OutboxMessage> builder)
+    {
+        builder.ToTable("OutboxMessages");
+        builder.HasKey(m => m.EventId);
+        builder.Property(m => m.EventType).HasMaxLength(50).IsRequired();
+        builder.Property(m => m.CorrelationId).HasMaxLength(64).IsRequired();
+        builder.Property(m => m.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(m => m.UltimoError).HasMaxLength(500);
+        builder.Property(m => m.Error).HasMaxLength(500);
+        builder.Property(m => m.CreadoEn).IsRequired();
+        builder.HasIndex(m => m.CargaId).IsUnique();
+        builder.HasIndex(m => m.Estado);
+        builder.HasIndex(m => m.ProximoIntentoEn);
+
+        // Relación interna con Carga (mismo contexto).
+        builder.HasOne<Carga>()
+            .WithMany()
+            .HasForeignKey(m => m.CargaId)
+            .OnDelete(DeleteBehavior.Cascade);
     }
 }

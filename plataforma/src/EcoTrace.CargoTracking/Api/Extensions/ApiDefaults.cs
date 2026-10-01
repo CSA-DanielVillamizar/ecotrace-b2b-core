@@ -40,7 +40,7 @@ public static class ApiDefaults
             var configuracion = proveedor.GetRequiredService<IConfiguration>();
             var entorno = proveedor.GetRequiredService<IHostEnvironment>();
             opciones.UseSqlite(ResolverCadenaConexion(configuracion, entorno, archivoDb));
-        });
+        }, optionsLifetime: ServiceLifetime.Singleton);
 
         builder.Services
             .AddControllers()

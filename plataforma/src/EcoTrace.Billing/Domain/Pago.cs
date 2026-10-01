@@ -86,6 +86,30 @@ public sealed class Pago
     public void Reembolsar(DateTime ahoraUtc) =>
         CambiarEstado(EstadoEscrow.Reembolsado, "Fondos reembolsados al generador", ahoraUtc);
 
+    public void CompensarLiberacionSaga(DateTime ahoraUtc)
+    {
+        if (EstadoEscrow != EstadoEscrow.Liberado)
+        {
+            throw DomainException.Conflict("Solo un pago liberado puede pasar a EnDisputa como compensación del Saga.");
+        }
+
+        EstadoEscrow = EstadoEscrow.EnDisputa;
+        ActualizadoEn = ahoraUtc;
+        _auditoria.Add(AuditoriaFinanciera.Crear(
+            PagoId, "Fondos en disputa por compensación del Saga", EstadoEscrow.EnDisputa, ahoraUtc));
+    }
+
+    public void RegistrarAccionSaga(string accion, DateTime ahoraUtc)
+    {
+        if (string.IsNullOrWhiteSpace(accion) || accion.Length > 120)
+        {
+            throw DomainException.Validation("La acción de auditoría del Saga debe tener entre 1 y 120 caracteres.");
+        }
+
+        ActualizadoEn = ahoraUtc;
+        _auditoria.Add(AuditoriaFinanciera.Crear(PagoId, accion, EstadoEscrow, ahoraUtc));
+    }
+
     internal static void ValidarMonto(decimal monto)
     {
         if (monto <= 0 || monto > MontoMaximo)
