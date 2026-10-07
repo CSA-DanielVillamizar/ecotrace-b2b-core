@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Serilog.Context;
 using Serilog.Events;
 
 namespace EcoTrace.Billing.Api.Extensions;
@@ -13,6 +14,9 @@ namespace EcoTrace.Billing.Api.Extensions;
 public static class ApiDefaults
 {
     private const string PoliticaCors = "console";
+
+    /// <summary>Encabezado que enlaza todas las llamadas de una misma operación entre servicios.</summary>
+    public const string EncabezadoCorrelacion = "X-Correlation-Id";
 
     public static WebApplicationBuilder AddApiDefaults<TContext>(
         this WebApplicationBuilder builder, string servicio, string archivoDb)
@@ -62,6 +66,10 @@ public static class ApiDefaults
         return builder;
     }
 
+    /// <summary>CorrelationId de la solicitud en curso (ver UseApiDefaults).</summary>
+    public static string CorrelationId(this HttpContext http) =>
+        http.Items[EncabezadoCorrelacion] as string ?? Guid.NewGuid().ToString("N");
+
     public static WebApplication ApplyMigrations<TContext>(this WebApplication app)
         where TContext : DbContext
     {
@@ -78,6 +86,24 @@ public static class ApiDefaults
     public static WebApplication UseApiDefaults<TContext>(this WebApplication app, string servicio)
         where TContext : DbContext
     {
+        // Cada solicitud lleva un CorrelationId: el que envio el llamador o uno nuevo. Se devuelve en la
+        // respuesta y se agrega a los registros, para seguir una operacion a traves de los servicios.
+        app.Use(async (http, siguiente) =>
+        {
+            var recibido = http.Request.Headers[EncabezadoCorrelacion].FirstOrDefault()?.Trim();
+            var id = !string.IsNullOrEmpty(recibido) && recibido.Length <= 64
+                && recibido.All(c => char.IsLetterOrDigit(c) || c is '-' or '_')
+                ? recibido
+                : Guid.NewGuid().ToString("N");
+
+            http.Items[EncabezadoCorrelacion] = id;
+            http.Response.Headers[EncabezadoCorrelacion] = id;
+            using (LogContext.PushProperty("CorrelationId", id))
+            {
+                await siguiente();
+            }
+        });
+
         app.UseSerilogRequestLogging();
         app.UseExceptionHandler();
         app.UseStatusCodePages();

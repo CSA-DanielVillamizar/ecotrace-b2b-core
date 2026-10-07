@@ -26,6 +26,11 @@ public sealed partial class Vehiculo
 
     public DateTime CreadoEn { get; private set; }
 
+    public EstadoRecurso Estado { get; private set; }
+
+    [ReferenciaExterna("CargoTracking", "Carga para la que está reservado, mientras esté Reservado")]
+    public Guid? ReservadoParaCargaId { get; private set; }
+
     public static Vehiculo Crear(
         Guid tenantId, Guid registradoPorUserId, string? placa, int capacidadKg, DateTime ahoraUtc)
     {
@@ -57,8 +62,53 @@ public sealed partial class Vehiculo
             RegistradoPorUserId = registradoPorUserId,
             Placa = placaNormalizada,
             CapacidadKg = capacidadKg,
-            CreadoEn = ahoraUtc
+            CreadoEn = ahoraUtc,
+            Estado = EstadoRecurso.Disponible
         };
+    }
+
+    /// <summary>
+    /// Reserva el vehículo para una carga. Es idempotente: repetir la reserva para la misma carga no
+    /// cambia nada. Devuelve true si el estado cambió. Si ya está reservado para otra carga, es un conflicto.
+    /// </summary>
+    public bool Reservar(Guid cargaId)
+    {
+        if (cargaId == Guid.Empty)
+        {
+            throw DomainException.Validation("La reserva necesita el identificador de la carga.");
+        }
+
+        if (Estado == EstadoRecurso.Reservado)
+        {
+            return ReservadoParaCargaId == cargaId
+                ? false
+                : throw DomainException.Conflict("El vehículo ya está reservado para otra carga.");
+        }
+
+        Estado = EstadoRecurso.Reservado;
+        ReservadoParaCargaId = cargaId;
+        return true;
+    }
+
+    /// <summary>
+    /// Libera el vehículo. Es idempotente: si ya estaba disponible no hace nada y devuelve false.
+    /// Si está reservado para otra carga, liberarlo desde esta sería un error: conflicto.
+    /// </summary>
+    public bool Liberar(Guid cargaId)
+    {
+        if (Estado == EstadoRecurso.Disponible)
+        {
+            return false;
+        }
+
+        if (ReservadoParaCargaId != cargaId)
+        {
+            throw DomainException.Conflict("El vehículo está reservado para otra carga y no se puede liberar desde esta.");
+        }
+
+        Estado = EstadoRecurso.Disponible;
+        ReservadoParaCargaId = null;
+        return true;
     }
 
     [GeneratedRegex("^[A-Z0-9]{5,8}$")]

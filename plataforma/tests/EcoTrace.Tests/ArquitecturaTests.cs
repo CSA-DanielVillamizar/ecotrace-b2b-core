@@ -118,15 +118,18 @@ public sealed class ArquitecturaTests
     }
 
     [Fact]
-    public void Identity_es_el_dominio_base_y_no_referencia_a_nadie()
+    public void Identity_solo_referencia_a_otro_contexto_por_el_PagoId_de_la_autorizacion()
     {
+        // Hasta el Trabajo 1 Identity era el dominio base y no referenciaba a nadie. El ADR 0003 (Saga
+        // "Liberar Pago en Escrow") le suma una unica referencia: la autorizacion de pago se identifica
+        // por el PagoId de Billing. Cualquier otra referencia saliente de Identity rompe esta prueba.
         var modelo = Modelos().Single(m => (string)m[0] == "Identity")[1] as IModel;
 
         var referencias = modelo!.GetEntityTypes()
-            .SelectMany(e => e.ClrType.GetProperties())
-            .Where(TieneReferenciaExterna);
+            .SelectMany(e => e.ClrType.GetProperties().Where(TieneReferenciaExterna).Select(p => $"{e.ClrType.Name}.{p.Name}"))
+            .ToArray();
 
-        Assert.Empty(referencias);
+        Assert.Equal(["AutorizacionPago.PagoId"], referencias);
     }
 
     [Fact]

@@ -32,6 +32,9 @@ services:
         DLL: EcoTrace.FleetManagement.Api.dll
     ports: ["5102:8080"]
     volumes: ["fleet-data:/app/App_Data"]
+    environment:
+      # Acepta fallos simulados, para demostrar la compensacion del Saga.
+      Simulacion__Habilitada: "true"
 
   cargo:
     <<: *servicio
@@ -42,6 +45,9 @@ services:
         DLL: EcoTrace.CargoTracking.Api.dll
     ports: ["5103:8080"]
     volumes: ["cargo-data:/app/App_Data"]
+    environment:
+      # Destino del Outbox: Cargo publica EntregaConfirmada a Billing por el nombre del servicio.
+      Servicios__Billing__BaseUrl: http://billing:8080
 
   billing:
     <<: *servicio
@@ -52,6 +58,10 @@ services:
         DLL: EcoTrace.Billing.Api.dll
     ports: ["5104:8080"]
     volumes: ["billing-data:/app/App_Data"]
+    environment:
+      # Servicios que el Saga llama. Se resuelven por nombre dentro de la red de compose.
+      Servicios__Identity__BaseUrl: http://identity:8080
+      Servicios__Fleet__BaseUrl: http://fleet:8080
 
   console:
     <<: *servicio

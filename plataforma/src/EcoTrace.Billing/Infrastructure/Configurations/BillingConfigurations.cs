@@ -77,3 +77,66 @@ internal sealed class AuditoriaFinancieraConfiguration : IEntityTypeConfiguratio
         builder.HasIndex(a => a.PagoId);
     }
 }
+
+internal sealed class SagaLiberacionPagoConfiguration : IEntityTypeConfiguration<SagaLiberacionPago>
+{
+    public void Configure(EntityTypeBuilder<SagaLiberacionPago> builder)
+    {
+        builder.ToTable("SagasLiberacionPago");
+        builder.HasKey(s => s.SagaId);
+        builder.Property(s => s.SagaId).ValueGeneratedNever();
+        builder.Property(s => s.Estado).HasConversion<string>().HasMaxLength(24).IsRequired();
+        builder.Property(s => s.EventoOrigen).HasMaxLength(40).IsRequired();
+        builder.Property(s => s.CorrelationId).HasMaxLength(64).IsRequired();
+        builder.Property(s => s.Motivo).HasMaxLength(600);
+        builder.Property(s => s.CreadoEn).IsRequired();
+        builder.Property(s => s.ActualizadoEn).IsRequired();
+        builder.Property(s => s.ProximoIntentoEn).IsRequired();
+
+        // Si dos ejecutores avanzan el mismo Saga a la vez, el segundo falla al guardar y se aparta.
+        builder.Property(s => s.Version).IsConcurrencyToken();
+
+        // Referencias externas a Cargo & Tracking y Fleet Management: columnas planas.
+        builder.Property(s => s.CargaId).IsRequired();
+        builder.Property(s => s.VehiculoId).IsRequired();
+        builder.Property(s => s.ConductorId).IsRequired();
+
+        // Un solo Saga por pago: es la clave de negocio que hace idempotente la liberacion (ADR 0002,
+        // "idempotencyKey = PaymentId:release"). El pago si es de este contexto: clave foranea real.
+        builder.HasIndex(s => s.PagoId).IsUnique();
+        builder.HasOne<Pago>().WithMany().HasForeignKey(s => s.PagoId).OnDelete(DeleteBehavior.Restrict);
+
+        // El ejecutor busca siempre lo mismo: sagas activos cuya hora de reintento ya llego.
+        builder.HasIndex(s => new { s.Estado, s.ProximoIntentoEn });
+
+        builder.HasMany(s => s.Pasos).WithOne().HasForeignKey(p => p.SagaId).OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(s => s.Pasos).UsePropertyAccessMode(PropertyAccessMode.Field);
+    }
+}
+
+internal sealed class SagaPasoConfiguration : IEntityTypeConfiguration<SagaPaso>
+{
+    public void Configure(EntityTypeBuilder<SagaPaso> builder)
+    {
+        builder.ToTable("SagasPasos");
+        builder.HasKey(p => p.PasoId);
+        builder.Property(p => p.PasoId).ValueGeneratedNever();
+        builder.Property(p => p.Nombre).HasMaxLength(40).IsRequired();
+        builder.Property(p => p.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(p => p.Detalle).HasMaxLength(600);
+        builder.Property(p => p.ActualizadoEn).IsRequired();
+        builder.HasIndex(p => new { p.SagaId, p.Orden }).IsUnique();
+    }
+}
+
+internal sealed class EventoRecibidoConfiguration : IEntityTypeConfiguration<EventoRecibido>
+{
+    public void Configure(EntityTypeBuilder<EventoRecibido> builder)
+    {
+        builder.ToTable("EventosRecibidos");
+        builder.HasKey(e => e.EventoId);
+        builder.Property(e => e.EventoId).ValueGeneratedNever();
+        builder.Property(e => e.Tipo).HasMaxLength(60).IsRequired();
+        builder.Property(e => e.RecibidoEn).IsRequired();
+    }
+}

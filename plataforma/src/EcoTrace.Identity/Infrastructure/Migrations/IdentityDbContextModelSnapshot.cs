@@ -17,6 +17,38 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "8.0.10");
 
+            modelBuilder.Entity("EcoTrace.Identity.Domain.AutorizacionPago", b =>
+                {
+                    b.Property<Guid>("AutorizacionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ActualizadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PagoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("AutorizacionId");
+
+                    b.HasIndex("PagoId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId");
+
+                    b.ToTable("AutorizacionesPago", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.Identity.Domain.Role", b =>
                 {
                     b.Property<int>("RoleId")
@@ -141,6 +173,11 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                     b.Property<DateTime>("CreadoEn")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -150,6 +187,9 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("TenantId");
 
@@ -190,6 +230,15 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Users", (string)null);
+                });
+
+            modelBuilder.Entity("EcoTrace.Identity.Domain.AutorizacionPago", b =>
+                {
+                    b.HasOne("EcoTrace.Identity.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("EcoTrace.Identity.Domain.RoleClaim", b =>

@@ -70,3 +70,24 @@ internal sealed class SeguimientoConfiguration : IEntityTypeConfiguration<Seguim
         builder.HasIndex(s => s.CargaId);
     }
 }
+
+internal sealed class OutboxMensajeConfiguration : IEntityTypeConfiguration<OutboxMensaje>
+{
+    public void Configure(EntityTypeBuilder<OutboxMensaje> builder)
+    {
+        builder.ToTable("Outbox");
+        builder.HasKey(m => m.EventoId);
+        builder.Property(m => m.EventoId).ValueGeneratedNever();
+        builder.Property(m => m.Tipo).HasMaxLength(60).IsRequired();
+        builder.Property(m => m.Contenido).HasMaxLength(2000).IsRequired();
+        builder.Property(m => m.CorrelationId).HasMaxLength(64).IsRequired();
+        builder.Property(m => m.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(m => m.Intentos).IsRequired();
+        builder.Property(m => m.CreadoEn).IsRequired();
+        builder.Property(m => m.ProximoIntentoEn).IsRequired();
+        builder.Property(m => m.UltimoError).HasMaxLength(300);
+
+        // El publicador busca siempre lo mismo: pendientes cuya hora de reintento ya llego.
+        builder.HasIndex(m => new { m.Estado, m.ProximoIntentoEn });
+    }
+}

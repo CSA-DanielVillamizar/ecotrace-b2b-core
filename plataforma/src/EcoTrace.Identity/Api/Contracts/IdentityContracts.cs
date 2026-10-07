@@ -15,10 +15,38 @@ public sealed record CrearTenantRequest
     public TenantType? TenantType { get; init; }
 }
 
-public sealed record TenantResponse(Guid TenantId, string Nombre, TenantType TenantType, DateTime CreadoEn)
+public sealed record TenantResponse(
+    Guid TenantId, string Nombre, TenantType TenantType, DateTime CreadoEn, EstadoTenant Estado, int Version)
 {
     public static TenantResponse De(Tenant tenant) =>
-        new(tenant.TenantId, tenant.Nombre, tenant.TenantType, tenant.CreadoEn);
+        new(tenant.TenantId, tenant.Nombre, tenant.TenantType, tenant.CreadoEn, tenant.Estado, tenant.Version);
+}
+
+/// <summary>
+/// Respuesta de ValidateTenantStatus (ADR 0002). Es la fuente autoritativa del estado: quien va
+/// a mover dinero debe preguntar aquí y no fiarse de una copia local.
+/// </summary>
+public sealed record EstadoTenantResponse(Guid TenantId, EstadoTenant Estado, int Version)
+{
+    public static EstadoTenantResponse De(Tenant tenant) => new(tenant.TenantId, tenant.Estado, tenant.Version);
+}
+
+public sealed record AutorizarPagoRequest
+{
+    /// <summary>PagoId emitido por Billing &amp; Escrow.</summary>
+    [Required]
+    public Guid? PagoId { get; init; }
+
+    /// <summary>Transportista que recibirá los fondos (TenantId de esta misma plataforma).</summary>
+    [Required]
+    public Guid? TenantId { get; init; }
+}
+
+public sealed record AutorizacionPagoResponse(
+    Guid AutorizacionId, Guid PagoId, Guid TenantId, EstadoAutorizacion Estado, DateTime CreadoEn, DateTime ActualizadoEn)
+{
+    public static AutorizacionPagoResponse De(AutorizacionPago a) =>
+        new(a.AutorizacionId, a.PagoId, a.TenantId, a.Estado, a.CreadoEn, a.ActualizadoEn);
 }
 
 public sealed record CrearUserRequest

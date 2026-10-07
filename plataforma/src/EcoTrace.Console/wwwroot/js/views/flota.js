@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { boton, bloque, estadoVacio, formularioModal, idChip, tabla } from '../components.js';
+import { boton, bloque, estadoVacio, formularioModal, idChip, insigniaRecurso, tabla } from '../components.js';
 import { fecha, h, numero } from '../dom.js';
 import { estado, nombreTenant, nombreUsuario, refrescar } from '../store.js';
 
@@ -35,6 +35,7 @@ export function flota() {
             { titulo: 'Placa', celda: (v) => h('span', { class: 'cell-title mono' }, v.placa) },
             { titulo: 'Capacidad', numerica: true, celda: (v) => `${numero(v.capacidadKg)} kg` },
             { titulo: 'Transportista', celda: (v) => nombreTenant(v.tenantId) },
+            { titulo: 'Disponibilidad', celda: (v) => insigniaRecurso(v.estado) },
             { titulo: 'Registrado por', celda: (v) => nombreUsuario(v.registradoPorUserId) },
             { titulo: 'Alta', celda: (v) => fecha(v.creadoEn) },
             { titulo: 'Identificador', celda: (v) => idChip(v.vehiculoId) }
@@ -50,6 +51,7 @@ export function flota() {
             { titulo: 'Nombre', celda: (c) => h('span', { class: 'cell-title' }, c.nombre) },
             { titulo: 'Licencia', celda: (c) => h('span', { class: 'mono' }, c.licencia) },
             { titulo: 'Transportista', celda: (c) => nombreTenant(c.tenantId) },
+            { titulo: 'Disponibilidad', celda: (c) => insigniaRecurso(c.estado) },
             { titulo: 'Cuenta de usuario', celda: (c) => (c.userId ? nombreUsuario(c.userId) : h('span', { class: 'muted' }, 'Sin cuenta')) },
             { titulo: 'Identificador', celda: (c) => idChip(c.conductorId) }
           ]

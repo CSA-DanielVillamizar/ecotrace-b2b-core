@@ -17,7 +17,36 @@ export const ESTADOS_CARGA = {
 export const ESTADOS_ESCROW = {
   EnCustodia: { texto: 'En custodia', tono: 'warn' },
   Liberado: { texto: 'Liberado', tono: 'ok' },
-  Reembolsado: { texto: 'Reembolsado', tono: 'neutral' }
+  Reembolsado: { texto: 'Reembolsado', tono: 'neutral' },
+  // La liberacion se revirtio porque el Saga fallo despues de liberar los fondos (compensacion).
+  EnDisputa: { texto: 'En disputa', tono: 'bad' }
+};
+
+export const ESTADOS_SAGA = {
+  EnCurso: { texto: 'En curso', tono: 'info' },
+  Completada: { texto: 'Completada', tono: 'ok' },
+  Compensando: { texto: 'Compensando', tono: 'warn' },
+  Compensada: { texto: 'Compensada', tono: 'warn' },
+  Fallida: { texto: 'Fallida', tono: 'bad' },
+  RequiereIntervencion: { texto: 'Requiere intervención', tono: 'bad' }
+};
+
+export const ESTADOS_PASO = {
+  Pendiente: { texto: 'Pendiente', tono: 'neutral' },
+  Completado: { texto: 'Completado', tono: 'ok' },
+  Fallido: { texto: 'Fallido', tono: 'bad' },
+  Compensado: { texto: 'Compensado', tono: 'warn' }
+};
+
+export const ESTADOS_OUTBOX = {
+  Pendiente: { texto: 'Pendiente', tono: 'warn' },
+  Publicado: { texto: 'Publicado', tono: 'ok' },
+  Muerto: { texto: 'Muerto', tono: 'bad' }
+};
+
+export const ESTADOS_RECURSO = {
+  Disponible: { texto: 'Disponible', tono: 'ok' },
+  Reservado: { texto: 'Reservado', tono: 'info' }
 };
 
 // Espejo de la maquina de estados del dominio, solo para ofrecer opciones validas en el formulario.
@@ -32,6 +61,10 @@ export const insignia = (texto, tono = 'neutral') => h('span', { class: 'badge',
 
 export const insigniaCarga = (estado) => insignia(ESTADOS_CARGA[estado]?.texto ?? estado, ESTADOS_CARGA[estado]?.tono);
 export const insigniaEscrow = (estado) => insignia(ESTADOS_ESCROW[estado]?.texto ?? estado, ESTADOS_ESCROW[estado]?.tono);
+export const insigniaSaga = (estado) => insignia(ESTADOS_SAGA[estado]?.texto ?? estado, ESTADOS_SAGA[estado]?.tono);
+export const insigniaPaso = (estado) => insignia(ESTADOS_PASO[estado]?.texto ?? estado, ESTADOS_PASO[estado]?.tono);
+export const insigniaOutbox = (estado) => insignia(ESTADOS_OUTBOX[estado]?.texto ?? estado, ESTADOS_OUTBOX[estado]?.tono);
+export const insigniaRecurso = (estado) => insignia(ESTADOS_RECURSO[estado]?.texto ?? estado, ESTADOS_RECURSO[estado]?.tono);
 export const insigniaTenant = (tipo) => insignia(tipo, tipo === 'Generador' ? 'info' : 'neutral');
 
 // ---------- Elementos basicos ----------

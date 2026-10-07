@@ -49,7 +49,7 @@ Cuando llegue la autenticación, el valor se leerá del claim y saldrá del cuer
 
 Fleet Management no comprueba que el `TenantId` exista en Identity. Cargo & Tracking no comprueba que el vehículo asignado pertenezca al transportista. Billing no comprueba que la carga esté entregada antes de crear el pago.
 
-Comprobarlo exigiría llamar al otro servicio o leer su base de datos, y el ADR 0001 lo prohíbe. La coordinación entre contextos es el tema de los ADR 0002 y 0003 (Trabajo 2). La consecuencia es que pueden existir identificadores que no apuntan a nada.
+Comprobarlo exigiría llamar al otro servicio o leer su base de datos, y el ADR 0001 lo prohíbe. La coordinación entre contextos es el tema de los ADR 0002 y 0003, y el Trabajo 2 la resolvió con el Saga: Billing pregunta a Identity y a Fleet por HTTP en vez de leer sus bases, y falla cerrado si no responden. Fuera del Saga, la consecuencia sigue siendo que pueden existir identificadores que no apuntan a nada.
 
 Dos pruebas dejan esto explícito. `Guarda_los_identificadores_externos_sin_validarlos_contra_identity` crea un vehículo con un `TenantId` inventado. `Del_alta_de_organizaciones_a_la_liberacion_del_pago_solo_con_identificadores` recorre el ciclo completo y apaga Identity a la mitad: los otros tres servicios siguen funcionando.
 
@@ -90,14 +90,14 @@ La consola pide cada lista al servicio dueño y después resuelve nombres buscan
 
 ## Pruebas
 
-Hay tres tipos. Las de integración levantan cada API completa con `WebApplicationFactory` y una base temporal, y la ejercitan por HTTP. Las de arquitectura leen los `.csproj` y el modelo de EF Core para hacer cumplir la regla de oro. Una prueba de flujo recorre los cuatro contextos usando solo identificadores.
+Hay cuatro tipos. Las de integración levantan cada API completa con `WebApplicationFactory` y una base temporal, y la ejercitan por HTTP. Las de arquitectura leen los `.csproj` y el modelo de EF Core para hacer cumplir la regla de oro. Una prueba de flujo recorre los cuatro contextos usando solo identificadores. Desde el Trabajo 2 hay un cuarto tipo: las pruebas del Saga y del Outbox levantan los cuatro servicios reales juntos y fallan uno a propósito para ver el reintento, la compensación y el fallo cerrado. Están mapeadas a la rúbrica en [referencia.md](trabajo-02/referencia.md).
 
 ## Fuera de alcance
 
-Lo siguiente no está y no debería esperarse en el Trabajo 1:
+Lo siguiente no está en esta base:
 
 - Autenticación y autorización (Trabajo 3, ADR 0004).
-- Comunicación entre servicios, mensajería y Saga (Trabajo 2, ADR 0002 y 0003).
+- Un broker de mensajes real: el Trabajo 2 usa HTTP y un Outbox en tabla, con el mismo contrato del ADR.
 - Paginación: las listas devuelven todo.
 - Observabilidad más allá de los registros de Serilog.
 - Healthchecks de Docker (la imagen base no incluye `curl`).

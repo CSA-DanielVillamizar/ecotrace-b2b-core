@@ -22,6 +22,14 @@ internal sealed class ConductorConfiguration : IEntityTypeConfiguration<Conducto
 
         builder.HasIndex(c => c.TenantId);
         builder.HasIndex(c => new { c.TenantId, c.Licencia }).IsUnique();
+
+        // El estado es token de concurrencia: dos reservas simultaneas del mismo recurso no pueden
+        // ganar las dos. La segunda falla y la API responde 409.
+        builder.Property(c => c.Estado).HasConversion<string>().HasMaxLength(20).IsRequired().IsConcurrencyToken();
+
+        // Referencia externa a Cargo & Tracking: columna plana, sin FK.
+        builder.Property(c => c.ReservadoParaCargaId);
+        builder.HasIndex(c => c.ReservadoParaCargaId);
     }
 }
 
@@ -41,5 +49,13 @@ internal sealed class VehiculoConfiguration : IEntityTypeConfiguration<Vehiculo>
 
         builder.HasIndex(v => v.TenantId);
         builder.HasIndex(v => v.Placa).IsUnique();
+
+        // El estado es token de concurrencia: dos reservas simultaneas del mismo recurso no pueden
+        // ganar las dos. La segunda falla y la API responde 409.
+        builder.Property(v => v.Estado).HasConversion<string>().HasMaxLength(20).IsRequired().IsConcurrencyToken();
+
+        // Referencia externa a Cargo & Tracking: columna plana, sin FK.
+        builder.Property(v => v.ReservadoParaCargaId);
+        builder.HasIndex(v => v.ReservadoParaCargaId);
     }
 }

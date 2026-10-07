@@ -10,6 +10,8 @@ echo "Compilando la solucion..."
 dotnet build EcoTrace.sln --nologo --verbosity quiet
 
 export ASPNETCORE_ENVIRONMENT=Development
+# Deja que Fleet Management acepte fallos simulados (para demostrar la compensacion del Saga).
+export Simulacion__Habilitada=true
 
 pids=()
 detener() {

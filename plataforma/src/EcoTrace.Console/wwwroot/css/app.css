@@ -264,6 +264,8 @@ dialog.modal {
 .timeline li:last-child::after { display: none; }
 .timeline li[data-tone="ok"]::before { background: var(--ok-solid); box-shadow: 0 0 0 3px var(--ok-bg); }
 .timeline li[data-tone="warn"]::before { background: var(--warn-solid); box-shadow: 0 0 0 3px var(--warn-bg); }
+.timeline li[data-tone="bad"]::before { background: var(--bad-solid); box-shadow: 0 0 0 3px var(--bad-bg); }
+.timeline li[data-tone="info"]::before { background: var(--info-solid); box-shadow: 0 0 0 3px var(--info-bg); }
 .timeline li[data-tone="neutral"]::before { background: var(--neutral-solid); box-shadow: 0 0 0 3px var(--neutral-bg); }
 .timeline .when { font-size: 0.75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
 .timeline .what { margin-top: 2px; }

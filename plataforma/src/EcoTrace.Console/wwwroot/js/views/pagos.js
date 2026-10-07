@@ -203,7 +203,7 @@ async function abrirDetalle(id) {
 
 function contenidoDetalle({ pago, auditoria }) {
   const fila = (etiqueta, valor) => [h('dt', {}, etiqueta), h('dd', {}, valor)];
-  const tonoDe = { EnCustodia: 'warn', Liberado: 'ok', Reembolsado: 'neutral' };
+  const tonoDe = { EnCustodia: 'warn', Liberado: 'ok', Reembolsado: 'neutral', EnDisputa: 'bad' };
 
   return h('div', { class: 'stack-lg' },
     h('div', {},

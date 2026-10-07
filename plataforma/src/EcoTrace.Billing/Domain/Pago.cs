@@ -86,6 +86,39 @@ public sealed class Pago
     public void Reembolsar(DateTime ahoraUtc) =>
         CambiarEstado(EstadoEscrow.Reembolsado, "Fondos reembolsados al generador", ahoraUtc);
 
+    /// <summary>
+    /// Compensación de Billing en el Saga "Liberar Pago" (ADR 0003): si el Saga falla después de
+    /// haber liberado los fondos, se revierten a una retención en disputa. Solo procede desde Liberado.
+    /// </summary>
+    public void RevertirLiberacion(DateTime ahoraUtc)
+    {
+        if (EstadoEscrow != EstadoEscrow.Liberado)
+        {
+            throw DomainException.Conflict(
+                $"Solo un pago liberado se puede revertir. Este pago está {EstadoEscrow}.");
+        }
+
+        EstadoEscrow = EstadoEscrow.EnDisputa;
+        ActualizadoEn = ahoraUtc;
+        _auditoria.Add(AuditoriaFinanciera.Crear(
+            PagoId, "Liberación revertida: fondos en disputa (nota de débito interna)", EstadoEscrow.EnDisputa, ahoraUtc));
+    }
+
+    /// <summary>
+    /// Deja constancia de un hecho del proceso (una autorización obtenida, un recurso liberado…) sin
+    /// cambiar el estado del dinero. El registro es de solo agregado, como el resto de la auditoría.
+    /// </summary>
+    public void RegistrarEvento(string accion, DateTime ahoraUtc)
+    {
+        var limpia = (accion ?? string.Empty).Trim();
+        if (limpia.Length is < 3 or > 120)
+        {
+            throw DomainException.Validation("La acción de auditoría debe tener entre 3 y 120 caracteres.");
+        }
+
+        _auditoria.Add(AuditoriaFinanciera.Crear(PagoId, limpia, EstadoEscrow, ahoraUtc));
+    }
+
     internal static void ValidarMonto(decimal monto)
     {
         if (monto <= 0 || monto > MontoMaximo)
