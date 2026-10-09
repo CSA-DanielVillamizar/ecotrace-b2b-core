@@ -25,15 +25,9 @@ public sealed class RecursosController(
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<ActionResult<RecursosDeCargaResponse>> Reservar(RecursosDeCargaRequest solicitud, CancellationToken ct)
     {
-        var (vehiculo, conductor) = await CargarAsync(solicitud, ct);
-
-        var cambioVehiculo = vehiculo.Reservar(solicitud.CargaId!.Value);
-        var cambioConductor = conductor.Reservar(solicitud.CargaId!.Value);
-        var cambio = cambioVehiculo || cambioConductor;
-        if (cambio)
-        {
-            await db.GuardarAsync("Otra solicitud reservó el mismo recurso. Consulte su estado y reintente.", ct);
-        }
+        var (vehiculo, conductor, cambio) = await AplicarAsync(
+            solicitud, (v, c, cargaId) => (v.Reservar(cargaId), c.Reservar(cargaId)),
+            "Otra solicitud reservó el mismo recurso. Consulte su estado y reintente.", ct);
 
         var respuesta = Resultado(solicitud, vehiculo, conductor, cambio);
         return cambio ? StatusCode(StatusCodes.Status201Created, respuesta) : Ok(respuesta);
@@ -57,17 +51,44 @@ public sealed class RecursosController(
             });
         }
 
-        var (vehiculo, conductor) = await CargarAsync(solicitud, ct);
-
-        var cambioVehiculo = vehiculo.Liberar(solicitud.CargaId!.Value);
-        var cambioConductor = conductor.Liberar(solicitud.CargaId!.Value);
-        var cambio = cambioVehiculo || cambioConductor;
-        if (cambio)
-        {
-            await db.GuardarAsync("Otra solicitud modificó el mismo recurso. Consulte su estado y reintente.", ct);
-        }
+        var (vehiculo, conductor, cambio) = await AplicarAsync(
+            solicitud, (v, c, cargaId) => (v.Liberar(cargaId), c.Liberar(cargaId)),
+            "Otra solicitud modificó el mismo recurso. Consulte su estado y reintente.", ct);
 
         return Ok(Resultado(solicitud, vehiculo, conductor, cambio));
+    }
+
+    /// <summary>
+    /// Aplica la operación y la guarda. Si una solicitud simultánea se adelantó (token de concurrencia),
+    /// se relee y se repite una vez: si la otra hizo lo mismo para la misma carga, la operación ya no cambia
+    /// nada y responde 200; si la otra tomó el recurso para una carga distinta, la repetición lanza el 409.
+    /// </summary>
+    private async Task<(Vehiculo Vehiculo, Conductor Conductor, bool Cambio)> AplicarAsync(
+        RecursosDeCargaRequest solicitud,
+        Func<Vehiculo, Conductor, Guid, (bool Vehiculo, bool Conductor)> operacion,
+        string mensajeSiConflicto, CancellationToken ct)
+    {
+        var cargaId = solicitud.CargaId!.Value;
+        for (var intento = 1; ; intento++)
+        {
+            var (vehiculo, conductor) = await CargarAsync(solicitud, ct);
+            var (cambioVehiculo, cambioConductor) = operacion(vehiculo, conductor, cargaId);
+            var cambio = cambioVehiculo || cambioConductor;
+            if (!cambio)
+            {
+                return (vehiculo, conductor, false);
+            }
+
+            try
+            {
+                await db.GuardarAsync(mensajeSiConflicto, ct);
+                return (vehiculo, conductor, true);
+            }
+            catch (DomainException conflicto) when (conflicto.Kind == DomainErrorKind.Conflict && intento == 1)
+            {
+                db.ChangeTracker.Clear();
+            }
+        }
     }
 
     private async Task<(Vehiculo Vehiculo, Conductor Conductor)> CargarAsync(

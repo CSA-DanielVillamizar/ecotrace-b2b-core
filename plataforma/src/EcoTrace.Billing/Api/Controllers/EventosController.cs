@@ -56,7 +56,7 @@ public sealed class EventosController(BillingDbContext db, TimeProvider reloj) :
         if (await db.Sagas.AnyAsync(s => s.PagoId == pago.PagoId, ct))
         {
             db.EventosRecibidos.Add(EventoRecibido.Registrar(eventoId, tipo, ahora));
-            await GuardarEventoAsync(eventoId, ct);
+            await GuardarEventoAsync(eventoId, pago.PagoId, ct);
             return Ok(new EventoProcesadoResponse("duplicado", null, "Ya existe un Saga de liberación para este pago."));
         }
 
@@ -66,19 +66,21 @@ public sealed class EventosController(BillingDbContext db, TimeProvider reloj) :
         db.EventosRecibidos.Add(EventoRecibido.Registrar(eventoId, tipo, ahora));
         db.Sagas.Add(saga);
 
-        if (!await GuardarEventoAsync(eventoId, ct))
+        if (!await GuardarEventoAsync(eventoId, pago.PagoId, ct))
         {
-            return Ok(new EventoProcesadoResponse("duplicado", null, "Otra entrega del mismo evento ganó la carrera."));
+            return Ok(new EventoProcesadoResponse("duplicado", null, "Otra entrega ganó la carrera y ya inició el Saga de este pago."));
         }
 
         return Accepted($"/api/sagas/{saga.SagaId}", new EventoProcesadoResponse("aceptado", saga.SagaId, null));
     }
 
     /// <summary>
-    /// Guarda el evento recibido (y el Saga, si se agregó). Devuelve false si una entrega simultánea del
-    /// mismo evento se adelantó: la clave única lo detecta y aquí se traduce a "duplicado" en vez de error.
+    /// Guarda el evento recibido (y el Saga, si se agregó). Devuelve false si una entrega simultánea se
+    /// adelantó: el mismo evento (clave única por eventId) o uno distinto para el mismo pago (clave única
+    /// por PagoId). En los dos casos el contrato pide 200 "duplicado", no un 409 que Cargo daría por
+    /// permanente y mandaría a mensajes muertos.
     /// </summary>
-    private async Task<bool> GuardarEventoAsync(Guid eventoId, CancellationToken ct)
+    private async Task<bool> GuardarEventoAsync(Guid eventoId, Guid pagoId, CancellationToken ct)
     {
         try
         {
@@ -88,7 +90,8 @@ public sealed class EventosController(BillingDbContext db, TimeProvider reloj) :
         catch (DomainException conflicto) when (conflicto.Kind == DomainErrorKind.Conflict)
         {
             db.ChangeTracker.Clear();
-            if (await db.EventosRecibidos.AnyAsync(e => e.EventoId == eventoId, ct))
+            if (await db.EventosRecibidos.AnyAsync(e => e.EventoId == eventoId, ct)
+                || await db.Sagas.AnyAsync(s => s.PagoId == pagoId, ct))
             {
                 return false;
             }

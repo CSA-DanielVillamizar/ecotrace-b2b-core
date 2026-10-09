@@ -65,6 +65,7 @@ namespace EcoTrace.CargoTracking.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Estado")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");

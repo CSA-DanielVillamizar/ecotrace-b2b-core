@@ -55,6 +55,12 @@ Pruebas:
 | Fleet | Reservar y liberar repetidos | `200` sin cambios | `ContratosEntreServiciosTests.Reservar_y_liberar_son_idempotentes_y_responden_si_cambiaron_algo` |
 | Fleet | Dos reservas simultáneas | Solo gana una | `ContratosEntreServiciosTests.Dos_reservas_simultaneas_del_mismo_vehiculo_para_cargas_distintas_no_pueden_ganar_las_dos` |
 
+Las mismas garantías valen cuando las solicitudes llegan a la vez, no solo una después de otra:
+
+- Billing: si dos eventos distintos del mismo pago compiten, gana el índice único por pago y el que pierde recibe `200` «duplicado», no `409` (Cargo daría un `409` por permanente y mandaría un evento válido a mensajes muertos). Prueba: `Dos_eventos_distintos_del_mismo_pago_a_la_vez_dan_un_solo_Saga_y_ninguno_responde_conflicto`.
+- Cargo & Tracking: el estado de la carga es un token de concurrencia, así que dos entregas simultáneas no guardan dos mensajes. Prueba: `OutboxTests.Entregar_la_misma_carga_a_la_vez_deja_una_sola_entrega_y_un_solo_mensaje`.
+- Fleet: si una reserva repetida coincide con la primera, se relee y se repite una vez; si la otra reservó para la misma carga, responde `200`, y si fue para otra carga, `409`. Prueba: `Reservar_la_misma_carga_a_la_vez_responde_exito_a_todas_y_reserva_una_sola_vez`.
+
 La deduplicación de Billing usa las dos claves a la vez a propósito. El `eventId` frena el reenvío del mismo mensaje; la clave de negocio (el pago) frena un segundo mensaje distinto sobre el mismo pago. Con solo una, el dinero se puede mover dos veces.
 
 ## Resiliencia (0.5)

@@ -145,6 +145,23 @@ public sealed class ContratosEntreServiciosTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Reservar_la_misma_carga_a_la_vez_responde_exito_a_todas_y_reserva_una_sola_vez()
+    {
+        var envio = await _e.PrepararEnvioEnTransitoAsync(conPago: false);
+        await _e.ClienteFleet.PostearAsync("/api/liberaciones",
+            new { cargaId = envio.CargaId, vehiculoId = envio.VehiculoId, conductorId = envio.ConductorId });
+
+        // Un reintento del orquestador puede coincidir con la primera solicitud. El contrato pide 200 para
+        // la repetida, no un 409 que parezca un fallo.
+        var respuestas = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
+            _e.ClienteFleet.PostearAsync("/api/reservas",
+                new { cargaId = envio.CargaId, vehiculoId = envio.VehiculoId, conductorId = envio.ConductorId })));
+
+        Assert.Equal(1, respuestas.Count(r => r.Estado == HttpStatusCode.Created));
+        Assert.All(respuestas, r => Assert.True(r.Estado is HttpStatusCode.Created or HttpStatusCode.OK, $"Respondió {r.Estado}"));
+    }
+
+    [Fact]
     public async Task Dos_reservas_simultaneas_del_mismo_vehiculo_para_cargas_distintas_no_pueden_ganar_las_dos()
     {
         var envio = await _e.PrepararEnvioEnTransitoAsync(conPago: false);

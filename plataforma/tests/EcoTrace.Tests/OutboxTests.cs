@@ -39,6 +39,22 @@ public sealed class OutboxTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Entregar_la_misma_carga_a_la_vez_deja_una_sola_entrega_y_un_solo_mensaje()
+    {
+        var envio = await _e.PrepararEnvioEnTransitoAsync();
+
+        // Todas parten de EnTransito. Sin un token de concurrencia en el estado de la carga, dos podrían
+        // pasar la validación y guardar su propio mensaje con un identificador distinto.
+        var respuestas = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ =>
+            _e.ClienteCargo.PostearAsync(
+                $"/api/cargas/{envio.CargaId}/seguimientos", new { estado = "Entregado", ubicacion = "Popayán" })));
+
+        Assert.Equal(1, respuestas.Count(r => r.Estado == HttpStatusCode.Created));
+        Assert.All(respuestas, r => Assert.True(r.Estado is HttpStatusCode.Created or HttpStatusCode.Conflict, $"Respondió {r.Estado}"));
+        Assert.Equal(1, (await _e.ClienteCargo.ConsultarAsync("/api/outbox")).Cantidad);
+    }
+
+    [Fact]
     public async Task Si_Billing_esta_caido_la_entrega_se_registra_igual_y_el_evento_llega_cuando_Billing_vuelve()
     {
         var envio = await _e.PrepararEnvioEnTransitoAsync();

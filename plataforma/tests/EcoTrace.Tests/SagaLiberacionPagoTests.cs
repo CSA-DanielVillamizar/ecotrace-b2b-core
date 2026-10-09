@@ -212,6 +212,22 @@ public sealed class SagaLiberacionPagoTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Dos_eventos_distintos_del_mismo_pago_a_la_vez_dan_un_solo_Saga_y_ninguno_responde_conflicto()
+    {
+        var envio = await _e.PrepararEnvioEnTransitoAsync();
+
+        // Cada evento pasa la revisión "¿ya hay Saga?" antes de que otro lo guarde, y el índice único
+        // por pago decide quién gana. Quien pierde debe recibir 200 "duplicado": un 409 lo daría Cargo
+        // por permanente y mandaría un evento válido a mensajes muertos.
+        var respuestas = await Task.WhenAll(Enumerable.Range(0, 8).Select(_ =>
+            _e.ClienteBilling.PostearAsync("/api/eventos/entrega-confirmada", Evento(Guid.NewGuid(), envio))));
+
+        Assert.Equal(1, respuestas.Count(r => r.Estado == HttpStatusCode.Accepted));
+        Assert.All(respuestas, r => Assert.True(r.Estado is HttpStatusCode.Accepted or HttpStatusCode.OK, $"Respondió {r.Estado}"));
+        Assert.Equal(1, (await _e.ClienteBilling.ConsultarAsync("/api/sagas")).Cantidad);
+    }
+
+    [Fact]
     public async Task Dos_ejecutores_avanzando_el_mismo_Saga_a_la_vez_no_duplican_ningun_efecto()
     {
         var envio = await _e.PrepararEnvioEnTransitoAsync();
