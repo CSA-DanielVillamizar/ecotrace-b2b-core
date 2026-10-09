@@ -1,4 +1,5 @@
 using EcoTrace.CargoTracking.Api.Contracts;
+using EcoTrace.CargoTracking.Api.Extensions;
 using EcoTrace.CargoTracking.Domain;
 using EcoTrace.CargoTracking.Infrastructure;
 using Microsoft.AspNetCore.Mvc;
@@ -86,8 +87,16 @@ public sealed class CargasController(CargoTrackingDbContext db, TimeProvider rel
         Guid id, RegistrarSeguimientoRequest solicitud, CancellationToken ct)
     {
         var carga = await CargarAsync(id, tracking: true, ct);
-        carga.RegistrarSeguimiento(
-            solicitud.Estado!.Value, solicitud.Ubicacion, solicitud.Nota, reloj.GetUtcNow().UtcDateTime);
+        var ahora = reloj.GetUtcNow().UtcDateTime;
+        carga.RegistrarSeguimiento(solicitud.Estado!.Value, solicitud.Ubicacion, solicitud.Nota, ahora);
+
+        // Transactional Outbox (ADR 0002): el evento se guarda en la misma transaccion que el cambio
+        // de estado. Si la entrega queda registrada, el evento tambien; si no, ninguno de los dos.
+        if (carga.Estado == EstadoCarga.Entregado)
+        {
+            db.Outbox.Add(OutboxMensaje.EntregaConfirmada(carga, HttpContext.CorrelationId(), ahora));
+        }
+
         await db.GuardarAsync("No se pudo registrar el seguimiento.", ct);
 
         return CreatedAtAction(nameof(Obtener), new { id }, CargaDetalleResponse.De(carga));

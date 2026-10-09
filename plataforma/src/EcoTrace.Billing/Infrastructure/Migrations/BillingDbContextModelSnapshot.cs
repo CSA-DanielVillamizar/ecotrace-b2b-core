@@ -45,6 +45,24 @@ namespace EcoTrace.Billing.Infrastructure.Migrations
                     b.ToTable("AuditoriaFinanciera", (string)null);
                 });
 
+            modelBuilder.Entity("EcoTrace.Billing.Domain.EventoRecibido", b =>
+                {
+                    b.Property<Guid>("EventoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RecibidoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("EventoId");
+
+                    b.ToTable("EventosRecibidos", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.Billing.Domain.Factura", b =>
                 {
                     b.Property<Guid>("FacturaId")
@@ -133,6 +151,110 @@ namespace EcoTrace.Billing.Infrastructure.Migrations
                     b.ToTable("Pagos", (string)null);
                 });
 
+            modelBuilder.Entity("EcoTrace.Billing.Domain.SagaLiberacionPago", b =>
+                {
+                    b.Property<Guid>("SagaId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ActualizadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CargaId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ConductorId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EventoOrigen")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Motivo")
+                        .HasMaxLength(600)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PagoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ProximoIntentoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("VehiculoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("SagaId");
+
+                    b.HasIndex("PagoId")
+                        .IsUnique();
+
+                    b.HasIndex("Estado", "ProximoIntentoEn");
+
+                    b.ToTable("SagasLiberacionPago", (string)null);
+                });
+
+            modelBuilder.Entity("EcoTrace.Billing.Domain.SagaPaso", b =>
+                {
+                    b.Property<Guid>("PasoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ActualizadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Compensable")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Detalle")
+                        .HasMaxLength(600)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Intentos")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("IntentosCompensacion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Nombre")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Orden")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("SagaId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("PasoId");
+
+                    b.HasIndex("SagaId", "Orden")
+                        .IsUnique();
+
+                    b.ToTable("SagasPasos", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.Billing.Domain.AuditoriaFinanciera", b =>
                 {
                     b.HasOne("EcoTrace.Billing.Domain.Pago", null)
@@ -142,9 +264,32 @@ namespace EcoTrace.Billing.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("EcoTrace.Billing.Domain.SagaLiberacionPago", b =>
+                {
+                    b.HasOne("EcoTrace.Billing.Domain.Pago", null)
+                        .WithMany()
+                        .HasForeignKey("PagoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EcoTrace.Billing.Domain.SagaPaso", b =>
+                {
+                    b.HasOne("EcoTrace.Billing.Domain.SagaLiberacionPago", null)
+                        .WithMany("Pasos")
+                        .HasForeignKey("SagaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("EcoTrace.Billing.Domain.Pago", b =>
                 {
                     b.Navigation("Auditoria");
+                });
+
+            modelBuilder.Entity("EcoTrace.Billing.Domain.SagaLiberacionPago", b =>
+                {
+                    b.Navigation("Pasos");
                 });
 #pragma warning restore 612, 618
         }

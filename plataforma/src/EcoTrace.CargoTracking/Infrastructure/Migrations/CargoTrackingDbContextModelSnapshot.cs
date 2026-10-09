@@ -65,6 +65,7 @@ namespace EcoTrace.CargoTracking.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Estado")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("TEXT");
@@ -92,6 +93,54 @@ namespace EcoTrace.CargoTracking.Infrastructure.Migrations
                     b.HasIndex("TransportistaTenantId");
 
                     b.ToTable("Cargas", (string)null);
+                });
+
+            modelBuilder.Entity("EcoTrace.CargoTracking.Domain.OutboxMensaje", b =>
+                {
+                    b.Property<Guid>("EventoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Contenido")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CorrelationId")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Estado")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Intentos")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("ProximoIntentoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("PublicadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UltimoError")
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("EventoId");
+
+                    b.HasIndex("Estado", "ProximoIntentoEn");
+
+                    b.ToTable("Outbox", (string)null);
                 });
 
             modelBuilder.Entity("EcoTrace.CargoTracking.Domain.Seguimiento", b =>

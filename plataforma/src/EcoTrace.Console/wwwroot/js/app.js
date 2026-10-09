@@ -10,6 +10,7 @@ import { mapa } from './views/mapa.js';
 import { organizaciones } from './views/organizaciones.js';
 import { pagos } from './views/pagos.js';
 import { resumen } from './views/resumen.js';
+import { sagas } from './views/sagas.js';
 
 const RUTAS = [
   { ruta: 'resumen', titulo: 'Resumen operativo', nav: 'Resumen', icono: 'dashboard', vista: resumen, grupo: 'Operación',
@@ -23,6 +24,9 @@ const RUTAS = [
   { ruta: 'pagos', titulo: 'Facturación y Escrow', nav: 'Facturación y Escrow', icono: 'recibo', vista: pagos, grupo: 'Operación',
     contexto: 'billing', contador: () => estado.pagos.length,
     lede: 'Los fondos quedan en custodia hasta que la carga se entrega y luego se liberan o se reembolsan.' },
+  { ruta: 'sagas', titulo: 'Saga: liberar pago en Escrow', nav: 'Saga de pago', icono: 'refrescar', vista: sagas, grupo: 'Operación',
+    contexto: 'billing', contador: () => estado.sagas.length,
+    lede: 'Al entregar una carga, Billing orquesta cuatro pasos entre los servicios y, si uno falla, deshace los anteriores.' },
   { ruta: 'organizaciones', titulo: 'Organizaciones y usuarios', nav: 'Organizaciones', icono: 'edificio', vista: organizaciones, grupo: 'Identidad',
     contexto: 'identity', contador: () => estado.tenants.length,
     lede: 'Las dos caras del marketplace y las personas que trabajan en cada una.' },

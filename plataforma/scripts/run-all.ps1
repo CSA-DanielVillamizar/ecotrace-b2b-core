@@ -16,6 +16,8 @@ dotnet build EcoTrace.sln --nologo --verbosity quiet
 if ($LASTEXITCODE -ne 0) { throw 'La compilacion fallo.' }
 
 $env:ASPNETCORE_ENVIRONMENT = 'Development'
+# Deja que Fleet Management acepte fallos simulados (para demostrar la compensacion del Saga).
+$env:Simulacion__Habilitada = 'true'
 
 $servicios = @(
   @{ Nombre = 'Identity';        Proyecto = 'src/EcoTrace.Identity/Api';        Url = 'http://localhost:5101' },

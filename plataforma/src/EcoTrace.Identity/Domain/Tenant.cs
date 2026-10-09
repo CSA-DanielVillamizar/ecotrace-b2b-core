@@ -19,6 +19,11 @@ public sealed class Tenant
 
     public DateTime CreadoEn { get; private set; }
 
+    public EstadoTenant Estado { get; private set; }
+
+    /// <summary>Sube en uno cada vez que cambia el estado. Permite a un consumidor ignorar cambios atrasados.</summary>
+    public int Version { get; private set; }
+
     public static Tenant Crear(string? nombre, TenantType tenantType, DateTime ahoraUtc)
     {
         var limpio = (nombre ?? string.Empty).Trim();
@@ -37,7 +42,27 @@ public sealed class Tenant
             TenantId = Guid.NewGuid(),
             Nombre = limpio,
             TenantType = tenantType,
-            CreadoEn = ahoraUtc
+            CreadoEn = ahoraUtc,
+            Estado = EstadoTenant.Activo,
+            Version = 1
         };
+    }
+
+    /// <summary>Suspende la organización. Es idempotente: devuelve true solo si el estado cambió.</summary>
+    public bool Suspender() => CambiarEstado(EstadoTenant.Suspendido);
+
+    /// <summary>Reactiva la organización. Es idempotente: devuelve true solo si el estado cambió.</summary>
+    public bool Reactivar() => CambiarEstado(EstadoTenant.Activo);
+
+    private bool CambiarEstado(EstadoTenant nuevo)
+    {
+        if (Estado == nuevo)
+        {
+            return false;
+        }
+
+        Estado = nuevo;
+        Version++;
+        return true;
     }
 }

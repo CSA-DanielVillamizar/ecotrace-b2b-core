@@ -3,6 +3,7 @@ using EcoTrace.FleetManagement.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddApiDefaults<FleetManagementDbContext>("FleetManagement", "fleet.db");
+builder.Services.AddSingleton<SimulacionFallos>();
 
 var app = builder.Build();
 app.ApplyMigrations<FleetManagementDbContext>();

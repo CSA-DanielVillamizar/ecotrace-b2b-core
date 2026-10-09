@@ -78,3 +78,12 @@ public sealed record CargaDetalleResponse(
             c.Asignacion is null ? null : AsignacionResponse.De(c.Asignacion),
             c.Seguimientos.OrderBy(s => s.RegistradoEn).Select(SeguimientoResponse.De).ToList());
 }
+
+public sealed record OutboxMensajeResponse(
+    Guid EventoId, string Tipo, EstadoOutbox Estado, int Intentos, string CorrelationId,
+    DateTime CreadoEn, DateTime ProximoIntentoEn, DateTime? PublicadoEn, string? UltimoError)
+{
+    public static OutboxMensajeResponse De(OutboxMensaje m) =>
+        new(m.EventoId, m.Tipo, m.Estado, m.Intentos, m.CorrelationId,
+            m.CreadoEn, m.ProximoIntentoEn, m.PublicadoEn, m.UltimoError);
+}

@@ -8,6 +8,7 @@ export const estado = {
   vehiculos: [], conductores: [],
   cargas: [],
   pagos: [], facturas: [],
+  sagas: [], outbox: [],
   contextos: {},
   errores: {},
   salud: {},
@@ -42,7 +43,9 @@ const LISTAS = {
   conductores: ['fleet', () => api.fleet.conductores()],
   cargas: ['cargo', () => api.cargo.cargas()],
   pagos: ['billing', () => api.billing.pagos()],
-  facturas: ['billing', () => api.billing.facturas()]
+  facturas: ['billing', () => api.billing.facturas()],
+  sagas: ['billing', () => api.billing.sagas()],
+  outbox: ['cargo', () => api.cargo.outbox()]
 };
 
 /** Vuelve a pedir todas las listas. Si un servicio no responde, los demas siguen funcionando. */

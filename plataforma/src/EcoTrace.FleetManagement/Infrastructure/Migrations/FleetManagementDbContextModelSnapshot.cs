@@ -25,6 +25,12 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
                     b.Property<DateTime>("CreadoEn")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Estado")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Licencia")
                         .IsRequired()
                         .HasMaxLength(20)
@@ -38,6 +44,9 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
                     b.Property<Guid>("RegistradoPorUserId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ReservadoParaCargaId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
 
@@ -45,6 +54,8 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("ConductorId");
+
+                    b.HasIndex("ReservadoParaCargaId");
 
                     b.HasIndex("TenantId");
 
@@ -65,12 +76,21 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
                     b.Property<DateTime>("CreadoEn")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Estado")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Placa")
                         .IsRequired()
                         .HasMaxLength(8)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("RegistradoPorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ReservadoParaCargaId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("TenantId")
@@ -80,6 +100,8 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
 
                     b.HasIndex("Placa")
                         .IsUnique();
+
+                    b.HasIndex("ReservadoParaCargaId");
 
                     b.HasIndex("TenantId");
 

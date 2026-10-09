@@ -91,7 +91,11 @@ export const api = {
     vehiculos: (tenantId) => pedir('fleet', `/api/vehiculos${consulta({ tenantId })}`),
     crearVehiculo: (cuerpo) => pedir('fleet', '/api/vehiculos', { metodo: 'POST', cuerpo }),
     conductores: (tenantId) => pedir('fleet', `/api/conductores${consulta({ tenantId })}`),
-    crearConductor: (cuerpo) => pedir('fleet', '/api/conductores', { metodo: 'POST', cuerpo })
+    crearConductor: (cuerpo) => pedir('fleet', '/api/conductores', { metodo: 'POST', cuerpo }),
+    reservar: (cuerpo) => pedir('fleet', '/api/reservas', { metodo: 'POST', cuerpo }),
+    // Solo responde si Fleet arranco con Simulacion__Habilitada=true; si no, es un 404.
+    fallos: () => pedir('fleet', '/api/_simulacion/fallos'),
+    armarFallos: (cantidad) => pedir('fleet', '/api/_simulacion/fallos', { metodo: 'POST', cuerpo: { operacion: 'liberaciones', cantidad } })
   },
 
   cargo: {
@@ -99,7 +103,9 @@ export const api = {
     carga: (id) => pedir('cargo', `/api/cargas/${id}`),
     crearCarga: (cuerpo) => pedir('cargo', '/api/cargas', { metodo: 'POST', cuerpo }),
     asignar: (id, cuerpo) => pedir('cargo', `/api/cargas/${id}/asignacion`, { metodo: 'POST', cuerpo }),
-    seguimiento: (id, cuerpo) => pedir('cargo', `/api/cargas/${id}/seguimientos`, { metodo: 'POST', cuerpo })
+    seguimiento: (id, cuerpo) => pedir('cargo', `/api/cargas/${id}/seguimientos`, { metodo: 'POST', cuerpo }),
+    outbox: (estado) => pedir('cargo', `/api/outbox${consulta({ estado })}`),
+    reprocesar: (eventoId) => pedir('cargo', `/api/outbox/${eventoId}/reprocesar`, { metodo: 'POST' })
   },
 
   billing: {
@@ -109,6 +115,8 @@ export const api = {
     liberar: (id) => pedir('billing', `/api/pagos/${id}/liberar`, { metodo: 'POST' }),
     reembolsar: (id) => pedir('billing', `/api/pagos/${id}/reembolso`, { metodo: 'POST' }),
     facturas: (filtros = {}) => pedir('billing', `/api/facturas${consulta(filtros)}`),
-    emitirFactura: (cuerpo) => pedir('billing', '/api/facturas', { metodo: 'POST', cuerpo })
+    emitirFactura: (cuerpo) => pedir('billing', '/api/facturas', { metodo: 'POST', cuerpo }),
+    sagas: (filtros = {}) => pedir('billing', `/api/sagas${consulta(filtros)}`),
+    saga: (id) => pedir('billing', `/api/sagas/${id}`)
   }
 };

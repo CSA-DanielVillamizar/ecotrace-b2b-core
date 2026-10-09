@@ -15,6 +15,12 @@ public sealed class BillingDbContext(DbContextOptions<BillingDbContext> options)
 
     public DbSet<AuditoriaFinanciera> Auditorias => Set<AuditoriaFinanciera>();
 
+    public DbSet<SagaLiberacionPago> Sagas => Set<SagaLiberacionPago>();
+
+    public DbSet<SagaPaso> SagasPasos => Set<SagaPaso>();
+
+    public DbSet<EventoRecibido> EventosRecibidos => Set<EventoRecibido>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();

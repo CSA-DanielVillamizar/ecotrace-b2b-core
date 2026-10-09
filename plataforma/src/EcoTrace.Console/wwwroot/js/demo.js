@@ -1,5 +1,6 @@
 // Conjunto de datos de ejemplo. Recorre el ciclo de negocio llamando a la API de cada servicio
-// en orden y copiando a mano los identificadores de uno a otro, como hara despues el Saga.
+// en orden y copiando a mano los identificadores de uno a otro. La entrega de la primera carga
+// dispara el Saga de verdad: el evento sale por el Outbox y Billing libera el pago por su cuenta.
 
 import { ApiError, api } from './api.js';
 import { abrirPanel, boton, confirmar } from './components.js';
@@ -7,7 +8,7 @@ import { aviso, h } from './dom.js';
 import { estado, refrescar } from './store.js';
 
 // Llamadas que hace `ejecutar`. Solo alimenta la barra de progreso: si cambia el guion, ajustelo.
-const TOTAL_LLAMADAS = 36;
+const TOTAL_LLAMADAS = 41;
 
 const azar = (largo, alfabeto) => Array.from({ length: largo }, () => alfabeto[Math.floor(Math.random() * alfabeto.length)]).join('');
 const LETRAS = 'ABCDEFGHJKLMNPRSTUVWXYZ';
@@ -83,12 +84,14 @@ async function ejecutar(paso) {
   const camion1 = await vehiculo(cauca, marta, 8000);
   const camion2 = await vehiculo(cauca, marta, 5000);
   const camion3 = await vehiculo(andina, julian, 12000);
+  const camion4 = await vehiculo(cauca, marta, 6000);
 
   const conductor = (tenant, registrador, nombre, userId = null) => paso('Fleet Management: registrando conductores…', () =>
     api.fleet.crearConductor({ tenantId: tenant.tenantId, registradoPorUserId: registrador.userId, userId, nombre, licencia: `C2-${azar(6, DIGITOS)}` }));
   const carlos = await conductor(cauca, marta, 'Carlos Ruiz', carlosUsuario.userId);
   const ana = await conductor(cauca, marta, 'Ana Torres');
   const diego = await conductor(andina, julian, 'Diego Salazar');
+  const luis = await conductor(cauca, marta, 'Luis Mora');
 
   // 3. Cargo & Tracking recibe identificadores de Identity y de Fleet.
   const carga = (gen, tra, descripcion, origen, destino, pesoKg) => paso('Cargo & Tracking: creando cargas…', () =>
@@ -101,30 +104,37 @@ async function ejecutar(paso) {
 
   const asignar = (c, v, d) => paso('Cargo & Tracking: asignando vehículo y conductor…', () =>
     api.cargo.asignar(c.cargaId, { vehiculoId: v.vehiculoId, conductorId: d.conductorId }));
+  const reservar = (c, v, d) => paso('Fleet Management: reservando vehículo y conductor…', () =>
+    api.fleet.reservar({ cargaId: c.cargaId, vehiculoId: v.vehiculoId, conductorId: d.conductorId }));
   const mover = (c, nuevoEstado, ubicacion, nota = null) => paso('Cargo & Tracking: registrando seguimiento…', () =>
     api.cargo.seguimiento(c.cargaId, { estado: nuevoEstado, ubicacion, nota }));
 
-  await asignar(c1, camion1, carlos);
-  await mover(c1, 'EnTransito', 'Santander de Quilichao');
-  await mover(c1, 'Entregado', 'Planta de tratamiento, Popayán');
-
-  await asignar(c2, camion2, ana);
-  await mover(c2, 'EnTransito', 'Salida de Cali, vía a Palmira');
-  await mover(c2, 'ConNovedad', 'Retén vehicular en la vía Cali–Palmira', 'Inspección de documentos retrasa la ruta.');
-
-  await asignar(c3, camion3, diego);
-  await asignar(c5, camion2, ana);
-  await mover(c5, 'EnTransito', 'Peaje Loboguerrero');
-
-  // 4. Billing & Escrow recibe los mismos identificadores.
+  // 4. Billing & Escrow retiene el pago. El de la primera carga se crea antes de entregarla, porque
+  // el Saga que arranca con la entrega busca el pago por el identificador de la carga.
   const pago = (c, gen, tra, monto) => paso('Billing & Escrow: reteniendo pagos…', () =>
     api.billing.crearPago({ generadorTenantId: gen.tenantId, transportistaTenantId: tra.tenantId, cargaId: c.cargaId, monto }));
-  const p1 = await pago(c1, generadora, cauca, 850000);
+
+  await asignar(c1, camion1, carlos);
+  await reservar(c1, camion1, carlos);
+  await mover(c1, 'EnTransito', 'Santander de Quilichao');
+  await pago(c1, generadora, cauca, 850000);
+  await mover(c1, 'Entregado', 'Planta de tratamiento, Popayán'); // dispara el Saga de liberación
+
+  await asignar(c2, camion2, ana);
+  await reservar(c2, camion2, ana);
+  await mover(c2, 'EnTransito', 'Salida de Cali, vía a Palmira');
+  await mover(c2, 'ConNovedad', 'Retén vehicular en la vía Cali–Palmira', 'Inspección de documentos retrasa la ruta.');
   await pago(c2, generadora, cauca, 620000);
+
+  await asignar(c3, camion3, diego);
+  await reservar(c3, camion3, diego);
   await pago(c3, ecoindustrias, andina, 480000);
+
+  await asignar(c5, camion4, luis);
+  await reservar(c5, camion4, luis);
+  await mover(c5, 'EnTransito', 'Peaje Loboguerrero');
   const p5 = await pago(c5, ecoindustrias, cauca, 1250000);
 
-  await paso('Billing & Escrow: liberando el pago de la carga entregada…', () => api.billing.liberar(p1.pago.pagoId));
   await paso('Billing & Escrow: reembolsando el pago de la carga cancelada…', () => api.billing.reembolsar(p5.pago.pagoId));
   await paso('Billing & Escrow: emitiendo la factura…', () =>
     api.billing.emitirFactura({ generadorTenantId: generadora.tenantId, transportistaTenantId: cauca.tenantId, cargaId: c1.cargaId, monto: 850000 }));
