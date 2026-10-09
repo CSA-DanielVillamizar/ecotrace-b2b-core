@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="EcoTrace.App.Controles.GuiaDelModuloView">
+    <Border Style="{StaticResource Tarjeta}">
+        <VerticalStackLayout Spacing="14">
+            <Label Text="Lo que entrega este módulo" Style="{StaticResource Seccion}" />
+
+            <VerticalStackLayout Spacing="2">
+                <Label Text="QUÉ MUESTRA" Style="{StaticResource Etiqueta}" />
+                <Label Text="{Binding Muestra}" />
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="2">
+                <Label Text="ACCIÓN QUE ENCOLA" Style="{StaticResource Etiqueta}" />
+                <Label Text="{Binding AccionEncolada}" />
+            </VerticalStackLayout>
+            <VerticalStackLayout Spacing="2">
+                <Label Text="CONFLICTO QUE DEBE PODER DEMOSTRAR" Style="{StaticResource Etiqueta}" />
+                <Label Text="{Binding ConflictoDeEjemplo}" />
+            </VerticalStackLayout>
+
+            <BoxView HeightRequest="1" Color="{StaticResource LineaSuave}" />
+            <Label Style="{StaticResource Apoyo}" Text="{Binding PistaDeCarpeta}" />
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

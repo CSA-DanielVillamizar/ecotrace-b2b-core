@@ -67,8 +67,9 @@ public sealed class ArquitecturaTests
             .Order()
             .ToArray();
 
-        // Console es el anfitrion de la interfaz web y no referencia ningun modulo.
-        Assert.Equal(Contextos.Append("Console").Order().ToArray(), carpetasDeModulo);
+        // Console es el anfitrion de la interfaz web y no referencia ningun modulo. Mobile.Core y App son la app
+        // del conductor (Trabajo 3): no son un contexto de negocio y tienen sus propias reglas, mas abajo.
+        Assert.Equal(Contextos.Concat(["Console", "Mobile.Core", "App"]).Order().ToArray(), carpetasDeModulo);
     }
 
     [Theory]
@@ -147,6 +148,61 @@ public sealed class ArquitecturaTests
         Assert.Equal(4, archivos.Distinct().Count());
     }
 
+    [Fact]
+    public void El_Mobile_Core_no_depende_de_MAUI_ni_de_ningun_servicio()
+    {
+        var proyecto = Path.Combine(RaizDeSolucion(), "src", "EcoTrace.Mobile.Core", "EcoTrace.Mobile.Core.csproj");
+        var xml = XDocument.Load(proyecto);
+
+        // Sin proyectos hermanos y sin MAUI: se prueba en cualquier maquina, sin emulador.
+        Assert.Empty(xml.Descendants("ProjectReference"));
+        Assert.DoesNotContain(xml.Descendants("PackageReference"), r => r.Attribute("Include")!.Value.Contains("Maui", StringComparison.OrdinalIgnoreCase));
+        Assert.Null(xml.Descendants("UseMaui").FirstOrDefault());
+
+        var fuentes = Directory.GetFiles(Path.GetDirectoryName(proyecto)!, "*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal));
+        foreach (var fuente in fuentes)
+        {
+            var texto = File.ReadAllText(fuente);
+            Assert.False(texto.Contains("Microsoft.Maui", StringComparison.Ordinal), $"{Path.GetFileName(fuente)} usa MAUI.");
+            Assert.DoesNotMatch(@"\b(SecureStorage|Preferences)\.(Default|Get|Set|Remove)", texto);
+        }
+    }
+
+    [Fact]
+    public void La_app_solo_referencia_al_Mobile_Core_y_no_a_ningun_servicio()
+    {
+        var proyecto = Path.Combine(RaizDeSolucion(), "src", "EcoTrace.App", "EcoTrace.App.csproj");
+
+        var referencias = ReferenciasDeProyecto(proyecto).Select(r => Path.GetFileName(r)!).ToArray();
+
+        // La app habla con los servicios por HTTP, como cualquier cliente. Nunca comparte codigo con ellos.
+        Assert.Equal(["EcoTrace.Mobile.Core.csproj"], referencias);
+    }
+
+    [Fact]
+    public void Cada_modulo_de_la_app_trabaja_solo_en_su_carpeta()
+    {
+        var modulos = Path.Combine(RaizDeSolucion(), "src", "EcoTrace.App", "Modulos");
+        var nombres = Directory.GetDirectories(modulos).Select(d => Path.GetFileName(d)!).Order().ToArray();
+        Assert.Equal(["Billing", "Cargo", "Fleet", "Identity"], nombres);
+
+        foreach (var propio in nombres)
+        {
+            foreach (var archivo in Directory.GetFiles(Path.Combine(modulos, propio!), "*.*", SearchOption.AllDirectories)
+                         .Where(f => f.EndsWith(".cs", StringComparison.Ordinal) || f.EndsWith(".xaml", StringComparison.Ordinal)))
+            {
+                var texto = File.ReadAllText(archivo);
+                foreach (var ajeno in nombres.Where(n => n != propio))
+                {
+                    Assert.False(
+                        texto.Contains($"EcoTrace.App.Modulos.{ajeno}", StringComparison.Ordinal) && !texto.Contains($"namespace EcoTrace.App.Modulos.{ajeno}", StringComparison.Ordinal),
+                        $"{propio}/{Path.GetFileName(archivo)} usa codigo del modulo {ajeno}. Cada escuadron trabaja solo en su carpeta.");
+                }
+            }
+        }
+    }
+
     public static IEnumerable<object[]> Modelos()
     {
         yield return ["Identity", Construir<IdentityDbContext>(o => new IdentityDbContext(o))];
@@ -169,7 +225,12 @@ public sealed class ArquitecturaTests
     private static string[] ProyectosDeCodigo() =>
         Directory.GetFiles(Path.Combine(RaizDeSolucion(), "src"), "*.csproj", SearchOption.AllDirectories)
             .Where(p => !p.Contains($"{Path.DirectorySeparatorChar}EcoTrace.Console{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Where(p => !EsDeLaApp(p))
             .ToArray();
+
+    private static bool EsDeLaApp(string rutaProyecto) =>
+        rutaProyecto.Contains($"{Path.DirectorySeparatorChar}EcoTrace.Mobile.Core{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+        || rutaProyecto.Contains($"{Path.DirectorySeparatorChar}EcoTrace.App{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
 
     private static IEnumerable<string> ReferenciasDeProyecto(string proyecto) =>
         XDocument.Load(proyecto).Descendants("ProjectReference")
