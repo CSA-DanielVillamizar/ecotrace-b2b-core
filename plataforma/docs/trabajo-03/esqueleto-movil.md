@@ -21,6 +21,13 @@ src/
     └── MauiProgram.cs, AppShell.xaml, App.xaml   Archivos compartidos
 ```
 
+<p>
+  <img src="img/app-inicio.png" alt="Pantalla de inicio de la app con tres contadores y la lista de acciones de la cola" width="260">
+  <img src="img/app-sin-conexion.png" alt="La misma pantalla sin conexión, con el banner de aviso arriba" width="260">
+</p>
+
+*La pantalla de inicio en un emulador, con y sin conexión. Las acciones de la lista son datos de ejemplo sembrados a mano en la cola para revisar los estados.*
+
 ## Cómo se corre
 
 Requisitos: SDK de .NET 8, el workload de MAUI para Android y un emulador (o un teléfono) con Android 7 o superior.
