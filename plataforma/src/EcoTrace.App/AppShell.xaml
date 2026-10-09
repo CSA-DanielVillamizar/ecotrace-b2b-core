@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:paginas="clr-namespace:EcoTrace.App.Paginas"
+       xmlns:identity="clr-namespace:EcoTrace.App.Modulos.Identity"
+       xmlns:fleet="clr-namespace:EcoTrace.App.Modulos.Fleet"
+       xmlns:cargo="clr-namespace:EcoTrace.App.Modulos.Cargo"
+       xmlns:billing="clr-namespace:EcoTrace.App.Modulos.Billing"
+       x:Class="EcoTrace.App.AppShell"
+       FlyoutBehavior="Disabled"
+       Shell.NavBarIsVisible="False">
+
+    <!--
+        El menu es la barra de abajo: una pestana por modulo. Para agregar o quitar una pantalla del menu
+        se cambia este archivo (lo hace el docente); el contenido de cada pestana lo trabaja su escuadron.
+    -->
+    <TabBar>
+        <ShellContent Title="Inicio" Icon="tab_inicio" ContentTemplate="{DataTemplate paginas:InicioPage}" Route="inicio" />
+        <ShellContent Title="Cargas" Icon="tab_cargas" ContentTemplate="{DataTemplate cargo:CargoPage}" Route="cargo" />
+        <ShellContent Title="Vehículo" Icon="tab_vehiculo" ContentTemplate="{DataTemplate fleet:FleetPage}" Route="fleet" />
+        <ShellContent Title="Pagos" Icon="tab_pagos" ContentTemplate="{DataTemplate billing:BillingPage}" Route="billing" />
+        <ShellContent Title="Perfil" Icon="tab_perfil" ContentTemplate="{DataTemplate identity:IdentityPage}" Route="identity" />
+    </TabBar>
+
+</Shell>

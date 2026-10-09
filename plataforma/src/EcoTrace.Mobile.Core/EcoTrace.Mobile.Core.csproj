@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Lo que la app necesita saber hacer y no depende de MAUI: la cola local, el motor que sincroniza,
+    la clasificacion de conflictos y las interfaces que cada modulo implementa. Es una biblioteca
+    net8.0 comun a proposito: se prueba en cualquier maquina, sin emulador ni Android.
+  -->
+  <PropertyGroup>
+    <RootNamespace>EcoTrace.Mobile.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+
+</Project>
