@@ -22,8 +22,8 @@ public sealed class BannerSinConexion : INotifyPropertyChanged
         _conectividad = conectividad;
         _cola = cola;
         _reloj = reloj ?? TimeProvider.System;
-        _conectividad.CambioDeConexion += async (_, _) => await ActualizarAsync();
-        _cola.Cambio += async (_, _) => await ActualizarAsync();
+        _conectividad.CambioDeConexion += (_, _) => _ = ActualizarSinFallarAsync();
+        _cola.Cambio += (_, _) => _ = ActualizarSinFallarAsync();
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -46,6 +46,22 @@ public sealed class BannerSinConexion : INotifyPropertyChanged
         var ultima = await _cola.UltimaSincronizacionAsync();
         Texto = ConstruirTexto(ultima, _reloj.GetUtcNow().UtcDateTime, TimeZoneInfo.Local);
         Visible = !_conectividad.HayConexion;
+    }
+
+    /// <summary>
+    /// Para los manejadores de eventos: un "async void" que lanza una excepción cierra la app, y leer la cola
+    /// puede fallar (disco lleno, base bloqueada). El banner se actualiza con el próximo cambio.
+    /// </summary>
+    private async Task ActualizarSinFallarAsync()
+    {
+        try
+        {
+            await ActualizarAsync();
+        }
+        catch (Exception)
+        {
+            // Sin banner actualizado no se cae la pantalla.
+        }
     }
 
     public static string ConstruirTexto(DateTime? ultimaSincronizacionUtc, DateTime ahoraUtc, TimeZoneInfo zona)

@@ -45,12 +45,12 @@ public sealed class MotorSincronizacionTests : IDisposable
         var operacion = await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
 
         // Primer envío: el servidor lo procesa pero la respuesta se pierde en el camino.
-        _e.Servidor.Responder = _ => throw new HttpRequestException("Se cortó la red.");
+        _e.Servidor.Responder = (_, _) => throw new HttpRequestException("Se cortó la red.");
         var corte = await _e.Motor.SincronizarAsync();
         Assert.Equal(ParadaSincronizacion.ErrorTransitorio, corte.Parada);
 
         // Segundo envío: el servidor ya la conoce y responde 200 con el resultado anterior.
-        _e.Servidor.Responder = _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+        _e.Servidor.Responder = (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
         var reintento = await _e.Motor.SincronizarAsync();
 
         Assert.Equal(1, reintento.Sincronizadas);
@@ -72,7 +72,7 @@ public sealed class MotorSincronizacionTests : IDisposable
     {
         var primera = await _e.Cola.EncolarAsync("Cargo", "CambiarEstado", "{}");
         var segunda = await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
-        _e.Servidor.Responder = _ => Task.FromResult(new HttpResponseMessage(estado));
+        _e.Servidor.Responder = (_, _) => Task.FromResult(new HttpResponseMessage(estado));
 
         var resultado = await _e.Motor.SincronizarAsync();
 
@@ -86,7 +86,7 @@ public sealed class MotorSincronizacionTests : IDisposable
     public async Task Una_excepcion_de_red_no_pierde_la_accion()
     {
         var operacion = await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
-        _e.Servidor.Responder = _ => throw new HttpRequestException("Sin ruta al host.");
+        _e.Servidor.Responder = (_, _) => throw new HttpRequestException("Sin ruta al host.");
 
         var resultado = await _e.Motor.SincronizarAsync();
 
@@ -100,9 +100,10 @@ public sealed class MotorSincronizacionTests : IDisposable
     public async Task Un_servidor_que_no_responde_a_tiempo_es_una_falla_transitoria()
     {
         var operacion = await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
-        _e.Servidor.Responder = async _ =>
+        _e.Servidor.Responder = async (_, ct) =>
         {
-            await Task.Delay(TimeSpan.FromSeconds(30));
+            // Respeta la cancelación: es lo que hace un servidor de verdad cuando el cliente se cansa de esperar.
+            await Task.Delay(TimeSpan.FromSeconds(30), ct);
             return new HttpResponseMessage(HttpStatusCode.Created);
         };
         var motor = new MotorSincronizacion(_e.Cola, _e.Registro, _e.Sesion, _e.Conectividad, _e.Http)
@@ -123,7 +124,7 @@ public sealed class MotorSincronizacionTests : IDisposable
     public async Task Un_rechazo_conserva_la_accion_con_el_tipo_de_conflicto_que_dijo_el_servidor(string tipo, TipoConflicto esperado)
     {
         var operacion = await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
-        _e.Servidor.Responder = _ => Task.FromResult(
+        _e.Servidor.Responder = (_, _) => Task.FromResult(
             ServidorFalso.Problema(HttpStatusCode.Conflict, tipo, "Motivo del servidor."));
 
         var resultado = await _e.Motor.SincronizarAsync();
@@ -140,7 +141,7 @@ public sealed class MotorSincronizacionTests : IDisposable
     {
         var rechazada = await _e.Cola.EncolarAsync("Cargo", "CambiarEstado", "{}");
         var buena = await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
-        _e.Servidor.Responder = s => Task.FromResult(s.Direccion.AbsolutePath.EndsWith("CambiarEstado", StringComparison.Ordinal)
+        _e.Servidor.Responder = (s, _) => Task.FromResult(s.Direccion.AbsolutePath.EndsWith("CambiarEstado", StringComparison.Ordinal)
             ? ServidorFalso.Problema(HttpStatusCode.Conflict, "B", "La carga fue reasignada.")
             : new HttpResponseMessage(HttpStatusCode.Created));
 
@@ -155,7 +156,7 @@ public sealed class MotorSincronizacionTests : IDisposable
     public async Task Un_rechazo_no_se_reintenta_en_la_siguiente_sincronizacion()
     {
         await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
-        _e.Servidor.Responder = _ => Task.FromResult(ServidorFalso.Problema(HttpStatusCode.Conflict, "B", "Ya no aplica."));
+        _e.Servidor.Responder = (_, _) => Task.FromResult(ServidorFalso.Problema(HttpStatusCode.Conflict, "B", "Ya no aplica."));
 
         await _e.Motor.SincronizarAsync();
         await _e.Motor.SincronizarAsync();
@@ -207,7 +208,7 @@ public sealed class MotorSincronizacionTests : IDisposable
     {
         var operacion = await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
         await _e.Cola.EncolarAsync("Cargo", "CambiarEstado", "{}");
-        _e.Servidor.Responder = _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized));
+        _e.Servidor.Responder = (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized));
 
         var resultado = await _e.Motor.SincronizarAsync();
 
@@ -249,17 +250,20 @@ public sealed class MotorSincronizacionTests : IDisposable
     {
         await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
         var liberar = new TaskCompletionSource();
-        _e.Servidor.Responder = async _ =>
+        _e.Servidor.Responder = async (_, ct) =>
         {
-            await liberar.Task;
+            await liberar.Task.WaitAsync(ct);
             return new HttpResponseMessage(HttpStatusCode.Created);
         };
 
         var primera = _e.Motor.SincronizarAsync();
-        while (_e.Servidor.Recibidas.Count == 0)
+        // Espera acotada: si la primera sincronización nunca llega al servidor, la prueba falla en vez de colgarse.
+        for (var i = 0; i < 500 && _e.Servidor.Recibidas.Count == 0; i++)
         {
             await Task.Delay(10);
         }
+
+        Assert.Single(_e.Servidor.Recibidas);
 
         var segunda = await _e.Motor.SincronizarAsync();
         liberar.SetResult();
@@ -273,7 +277,7 @@ public sealed class MotorSincronizacionTests : IDisposable
     public async Task Cualquier_respuesta_del_servidor_cuenta_como_ultimo_contacto_incluso_un_rechazo()
     {
         await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
-        _e.Servidor.Responder = _ => Task.FromResult(ServidorFalso.Problema(HttpStatusCode.Conflict, "B", "Ya no aplica."));
+        _e.Servidor.Responder = (_, _) => Task.FromResult(ServidorFalso.Problema(HttpStatusCode.Conflict, "B", "Ya no aplica."));
         Assert.Null(await _e.Cola.UltimaSincronizacionAsync());
 
         await _e.Motor.SincronizarAsync();
@@ -285,7 +289,7 @@ public sealed class MotorSincronizacionTests : IDisposable
     public async Task Una_falla_de_red_no_cuenta_como_ultimo_contacto()
     {
         await _e.Cola.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
-        _e.Servidor.Responder = _ => throw new HttpRequestException("Sin red.");
+        _e.Servidor.Responder = (_, _) => throw new HttpRequestException("Sin red.");
 
         await _e.Motor.SincronizarAsync();
 

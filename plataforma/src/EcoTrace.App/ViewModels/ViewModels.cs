@@ -232,7 +232,15 @@ public sealed class InicioViewModel : ObservableBase
         finally
         {
             Sincronizando = false;
-            await ActualizarAsync();
+            try
+            {
+                await ActualizarAsync();
+            }
+            catch (Exception)
+            {
+                // Los contadores se vuelven a leer con el próximo cambio de la cola. Esto corre en un comando
+                // async void: una excepción aquí cerraría la app.
+            }
         }
     }
 }

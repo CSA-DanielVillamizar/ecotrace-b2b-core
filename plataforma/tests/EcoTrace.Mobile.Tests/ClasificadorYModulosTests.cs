@@ -70,6 +70,10 @@ public sealed class ClasificadorYModulosTests : IDisposable
     [InlineData("[1,2,3]")]
     [InlineData("""{"tipoConflicto":"Z"}""")]
     [InlineData("""{"tipoConflicto":7}""")]
+    [InlineData("""{"tipoConflicto":"1"}""")]
+    [InlineData("""{"tipoConflicto":"2"}""")]
+    [InlineData("""{"tipoConflicto":"A, B"}""")]
+    [InlineData("""{"tipoConflicto":"99"}""")]
     public void Un_cuerpo_ausente_o_ilegible_no_rompe_la_clasificacion(string? cuerpo)
     {
         var resultado = ClasificadorDeRespuesta.Clasificar(HttpStatusCode.Conflict, cuerpo);
@@ -155,6 +159,23 @@ public sealed class ClasificadorYModulosTests : IDisposable
     [Fact]
     public void El_banner_lo_dice_si_nunca_hubo_una_sincronizacion() =>
         Assert.EndsWith("Aún no hay una sincronización.", BannerSinConexion.ConstruirTexto(null, DateTime.UtcNow, TimeZoneInfo.Utc));
+
+    [Fact]
+    public async Task Si_leer_la_cola_falla_el_banner_no_tumba_la_app()
+    {
+        // La base está en una carpeta que no existe: leerla lanza una excepción de SQLite.
+        var cola = new ColaLocalSqlite(Path.Combine(Path.GetTempPath(), $"no-existe-{Guid.NewGuid():N}", "cola.db"));
+        var conectividad = new ConectividadFalsa();
+        var banner = new BannerSinConexion(conectividad, cola);
+
+        // Estos eventos disparan la actualización en segundo plano. Antes, la excepción escapaba de un async void.
+        conectividad.HayConexion = false;
+        conectividad.HayConexion = true;
+        await Task.Delay(300);
+
+        Assert.False(banner.Visible);
+        Assert.Equal(string.Empty, banner.Texto);
+    }
 
     [Fact]
     public async Task El_banner_solo_se_ve_sin_senal_y_se_actualiza_con_la_ultima_sincronizacion()

@@ -13,6 +13,9 @@
     <!--
         El menu es la barra de abajo: una pestana por modulo. Para agregar o quitar una pantalla del menu
         se cambia este archivo (lo hace el docente); el contenido de cada pestana lo trabaja su escuadron.
+
+        Las paginas se crean desde el contenedor de dependencias de MAUI (por eso sus constructores reciben servicios):
+        las de Shell con DataTemplate se resuelven con el MauiContext de la app. Comprobado en un emulador con Inicio y Cargas; las otras tres usan el mismo mecanismo.
     -->
     <TabBar>
         <ShellContent Title="Inicio" Icon="tab_inicio" ContentTemplate="{DataTemplate paginas:InicioPage}" Route="inicio" />

@@ -46,8 +46,9 @@ internal sealed class ServidorFalso : HttpMessageHandler
     private readonly List<SolicitudRecibida> _recibidas = [];
     private readonly object _candado = new();
 
-    public Func<SolicitudRecibida, Task<HttpResponseMessage>> Responder { get; set; } =
-        _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created));
+    /// <summary>Lo que responde el servidor. Recibe el token de cancelación: una espera larga debe respetarlo.</summary>
+    public Func<SolicitudRecibida, CancellationToken, Task<HttpResponseMessage>> Responder { get; set; } =
+        (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created));
 
     public IReadOnlyList<SolicitudRecibida> Recibidas
     {
@@ -81,7 +82,7 @@ internal sealed class ServidorFalso : HttpMessageHandler
             _recibidas.Add(recibida);
         }
 
-        return await Responder(recibida);
+        return await Responder(recibida, ct);
     }
 
     private static string? Encabezado(HttpRequestMessage solicitud, string nombre) =>

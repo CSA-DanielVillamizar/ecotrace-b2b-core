@@ -71,11 +71,18 @@ public static class ClasificadorDeRespuesta
             string? detalle = null;
             foreach (var propiedad in documento.RootElement.EnumerateObject())
             {
-                if (propiedad.NameEquals("tipoConflicto") && propiedad.Value.ValueKind == JsonValueKind.String
-                    && Enum.TryParse<TipoConflicto>(propiedad.Value.GetString(), ignoreCase: true, out var valor)
-                    && Enum.IsDefined(valor))
+                if (propiedad.NameEquals("tipoConflicto"))
                 {
-                    conflicto = valor;
+                    // Solo "A", "B" o "C". Enum.TryParse también aceptaría "1" o "A, B", que el contrato no permite.
+                    conflicto = propiedad.Value.ValueKind == JsonValueKind.String
+                        ? propiedad.Value.GetString()?.Trim().ToUpperInvariant() switch
+                        {
+                            "A" => TipoConflicto.A,
+                            "B" => TipoConflicto.B,
+                            "C" => TipoConflicto.C,
+                            _ => null
+                        }
+                        : null;
                 }
                 else if ((propiedad.NameEquals("detail") || (detalle is null && propiedad.NameEquals("title")))
                          && propiedad.Value.ValueKind == JsonValueKind.String)
