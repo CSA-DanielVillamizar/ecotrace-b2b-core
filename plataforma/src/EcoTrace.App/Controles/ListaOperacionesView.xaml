@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="EcoTrace.App.Controles.ListaOperacionesView">
+    <VerticalStackLayout Spacing="10">
+
+        <!-- Sin acciones todavia: se explica que es esto en vez de dejar un hueco. -->
+        <Border Style="{StaticResource Tarjeta}" IsVisible="{Binding Vacia}">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="Todavía no hay acciones en cola" FontAttributes="Bold" />
+                <Label Style="{StaticResource Apoyo}"
+                       Text="Cuando el conductor haga algo sin señal, se guarda aquí primero y se envía cuando vuelva la conexión." />
+            </VerticalStackLayout>
+        </Border>
+
+        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Items}" Spacing="10">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate>
+                    <Border Style="{StaticResource Tarjeta}" Padding="0">
+                        <Grid ColumnDefinitions="6,*,Auto" ColumnSpacing="0">
+                            <BoxView Grid.Column="0" Color="{Binding EstadoColor}" CornerRadius="0" />
+                            <VerticalStackLayout Grid.Column="1" Padding="14,12" Spacing="3">
+                                <Label Text="{Binding Titulo}" FontAttributes="Bold" />
+                                <Label Text="{Binding Detalle}" Style="{StaticResource Apoyo}" />
+                                <Label Text="{Binding Conflicto}" IsVisible="{Binding TieneConflicto}"
+                                       FontSize="13" FontAttributes="Bold" TextColor="{Binding EstadoColor}" />
+                                <Label Text="{Binding Motivo}" IsVisible="{Binding TieneMotivo}"
+                                       Style="{StaticResource Apoyo}" />
+                            </VerticalStackLayout>
+                            <Border Grid.Column="2" VerticalOptions="Start" Margin="0,12,14,0" Padding="10,4"
+                                    StrokeThickness="0" BackgroundColor="{Binding EstadoFondo}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding EstadoTexto}" FontSize="12" FontAttributes="Bold"
+                                       TextColor="{Binding EstadoColor}" />
+                            </Border>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+    </VerticalStackLayout>
+</ContentView>
