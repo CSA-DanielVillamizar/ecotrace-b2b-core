@@ -9,7 +9,10 @@ public enum DomainErrorKind
     Conflict,
 
     /// <summary>El recurso pedido no existe dentro de este contexto (HTTP 404).</summary>
-    NotFound
+    NotFound,
+
+    /// <summary>Quien llama está identificado pero no tiene permiso sobre ese recurso (HTTP 403).</summary>
+    Forbidden
 }
 
 /// <summary>
@@ -26,4 +29,6 @@ public sealed class DomainException : Exception
     public static DomainException Conflict(string message) => new(DomainErrorKind.Conflict, message);
 
     public static DomainException NotFound(string message) => new(DomainErrorKind.NotFound, message);
+
+    public static DomainException Forbidden(string message) => new(DomainErrorKind.Forbidden, message);
 }

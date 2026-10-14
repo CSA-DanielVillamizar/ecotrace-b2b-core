@@ -19,28 +19,41 @@
 @cargaId = pegue-aqui-el-cargaId
 @pagoId = pegue-aqui-el-pagoId
 
+# Desde el Trabajo 3, las rutas de Identity piden token. Pegue aquí el accessToken de la petición 0.
+@tokenAdmin = pegue-aqui-el-accessToken-del-administrador
+
+
+### 0. Identity: sesión del administrador de la plataforma (credenciales de desarrollo)
+POST {{identity}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@ecotrace.local", "password": "EcoTrace-Admin-Dev-2026" }
 
 ### 1. Identity: organización generadora
 POST {{identity}}/api/tenants
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 { "nombre": "Generadora del Valle S.A.", "tenantType": "Generador" }
 
 ### 2. Identity: organización transportista
 POST {{identity}}/api/tenants
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 { "nombre": "Transportes del Cauca", "tenantType": "Transportista" }
 
-### 3. Identity: supervisor del transportista
+### 3. Identity: supervisor del transportista (con contraseña, para que pueda iniciar sesión)
 POST {{identity}}/api/users
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
   "tenantId": "{{transportistaId}}",
   "role": "Supervisor",
   "nombre": "Marta Ríos",
-  "email": "marta@transportescauca.co"
+  "email": "marta@transportescauca.co",
+  "password": "Marta-Rios-2026"
 }
 
 ### Identity: roles y permisos sembrados por la migración

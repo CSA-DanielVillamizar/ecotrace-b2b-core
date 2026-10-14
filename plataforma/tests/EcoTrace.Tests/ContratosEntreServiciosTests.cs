@@ -50,8 +50,8 @@ public sealed class ContratosEntreServiciosTests : IAsyncLifetime
         var transportista = await CrearTransportistaAsync();
         var pagoId = Guid.NewGuid();
 
-        var primera = await _e.ClienteIdentity.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista });
-        var repetida = await _e.ClienteIdentity.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista });
+        var primera = await _e.ClienteIdentityComoBilling.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista });
+        var repetida = await _e.ClienteIdentityComoBilling.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista });
 
         Assert.Equal(HttpStatusCode.Created, primera.Estado);
         Assert.Equal(HttpStatusCode.OK, repetida.Estado);
@@ -65,7 +65,7 @@ public sealed class ContratosEntreServiciosTests : IAsyncLifetime
         var pagoId = Guid.NewGuid();
 
         var respuestas = await Task.WhenAll(Enumerable.Range(0, 4).Select(_ =>
-            _e.ClienteIdentity.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista })));
+            _e.ClienteIdentityComoBilling.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista })));
 
         Assert.Equal(1, respuestas.Count(r => r.Estado == HttpStatusCode.Created));
         Assert.All(respuestas, r => Assert.True(r.Estado is HttpStatusCode.Created or HttpStatusCode.OK));
@@ -77,11 +77,11 @@ public sealed class ContratosEntreServiciosTests : IAsyncLifetime
     {
         var transportista = await CrearTransportistaAsync();
         var pagoId = Guid.NewGuid();
-        await _e.ClienteIdentity.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista });
+        await _e.ClienteIdentityComoBilling.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista });
 
-        var revocada = await _e.ClienteIdentity.PostearAsync($"/api/autorizaciones-pago/{pagoId}/revocacion");
-        var otraVez = await _e.ClienteIdentity.PostearAsync($"/api/autorizaciones-pago/{pagoId}/revocacion");
-        var reintento = await _e.ClienteIdentity.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista });
+        var revocada = await _e.ClienteIdentityComoBilling.PostearAsync($"/api/autorizaciones-pago/{pagoId}/revocacion");
+        var otraVez = await _e.ClienteIdentityComoBilling.PostearAsync($"/api/autorizaciones-pago/{pagoId}/revocacion");
+        var reintento = await _e.ClienteIdentityComoBilling.PostearAsync("/api/autorizaciones-pago", new { pagoId, tenantId = transportista });
 
         Assert.Equal("Revocado", revocada.Texto("estado"));
         Assert.Equal(HttpStatusCode.OK, otraVez.Estado);
@@ -96,9 +96,9 @@ public sealed class ContratosEntreServiciosTests : IAsyncLifetime
         await _e.ClienteIdentity.PostearAsync($"/api/tenants/{transportista}/suspension");
         var generador = (await _e.ClienteIdentity.PostearAsync("/api/tenants", new { nombre = "Generadora Norte", tenantType = "Generador" })).Id("tenantId");
 
-        var suspendida = await _e.ClienteIdentity.PostearAsync("/api/autorizaciones-pago", new { pagoId = Guid.NewGuid(), tenantId = transportista });
-        var deGenerador = await _e.ClienteIdentity.PostearAsync("/api/autorizaciones-pago", new { pagoId = Guid.NewGuid(), tenantId = generador });
-        var inexistente = await _e.ClienteIdentity.PostearAsync("/api/autorizaciones-pago", new { pagoId = Guid.NewGuid(), tenantId = Guid.NewGuid() });
+        var suspendida = await _e.ClienteIdentityComoBilling.PostearAsync("/api/autorizaciones-pago", new { pagoId = Guid.NewGuid(), tenantId = transportista });
+        var deGenerador = await _e.ClienteIdentityComoBilling.PostearAsync("/api/autorizaciones-pago", new { pagoId = Guid.NewGuid(), tenantId = generador });
+        var inexistente = await _e.ClienteIdentityComoBilling.PostearAsync("/api/autorizaciones-pago", new { pagoId = Guid.NewGuid(), tenantId = Guid.NewGuid() });
 
         Assert.Equal(HttpStatusCode.Conflict, suspendida.Estado);
         Assert.Equal(HttpStatusCode.BadRequest, deGenerador.Estado);

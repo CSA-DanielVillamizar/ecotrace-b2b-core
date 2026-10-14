@@ -43,7 +43,7 @@ public sealed class SagaLiberacionPagoTests : IAsyncLifetime
 
         // Cada contexto terminó en el estado que le corresponde, comprobado por su propia API.
         Assert.Equal("Liberado", await EstadoDelPago(pagoId));
-        var autorizacion = await _e.ClienteIdentity.ConsultarAsync($"/api/autorizaciones-pago/{pagoId}");
+        var autorizacion = await _e.ClienteIdentityComoBilling.ConsultarAsync($"/api/autorizaciones-pago/{pagoId}");
         Assert.Equal("Autorizado", autorizacion.Texto("estado"));
         Assert.Equal("Disponible", (await _e.ClienteFleet.ConsultarAsync($"/api/vehiculos/{envio.VehiculoId}")).Texto("estado"));
         Assert.Equal("Disponible", (await _e.ClienteFleet.ConsultarAsync($"/api/conductores/{envio.ConductorId}")).Texto("estado"));
@@ -101,7 +101,7 @@ public sealed class SagaLiberacionPagoTests : IAsyncLifetime
 
         // La compensación revirtió el estado real en cada contexto.
         Assert.Equal("EnDisputa", await EstadoDelPago(pagoId));
-        Assert.Equal("Revocado", (await _e.ClienteIdentity.ConsultarAsync($"/api/autorizaciones-pago/{pagoId}")).Texto("estado"));
+        Assert.Equal("Revocado", (await _e.ClienteIdentityComoBilling.ConsultarAsync($"/api/autorizaciones-pago/{pagoId}")).Texto("estado"));
 
         // Fleet nunca recibió la liberación: el vehículo sigue reservado para la carga. Nada quedó a medias sin explicación.
         var vehiculo = await _e.ClienteFleet.ConsultarAsync($"/api/vehiculos/{envio.VehiculoId}");
@@ -132,7 +132,7 @@ public sealed class SagaLiberacionPagoTests : IAsyncLifetime
         // No se hizo nada, así que no hubo nada que compensar: el dinero sigue en custodia.
         Assert.Equal("EnCustodia", await EstadoDelPago(pagoId));
         Assert.Equal("Pendiente", Paso(saga, "LiberarFondos").GetProperty("estado").GetString());
-        Assert.Equal(HttpStatusCode.NotFound, (await _e.ClienteIdentity.ConsultarAsync($"/api/autorizaciones-pago/{pagoId}")).Estado);
+        Assert.Equal(HttpStatusCode.NotFound, (await _e.ClienteIdentityComoBilling.ConsultarAsync($"/api/autorizaciones-pago/{pagoId}")).Estado);
         Assert.Equal("Reservado", (await _e.ClienteFleet.ConsultarAsync($"/api/vehiculos/{envio.VehiculoId}")).Texto("estado"));
     }
 
@@ -272,7 +272,7 @@ public sealed class SagaLiberacionPagoTests : IAsyncLifetime
         Assert.Equal("Compensada", saga.Texto("estado"));
         Assert.Contains("ya está Liberado", saga.Texto("motivo"));
         Assert.Equal(1, (await AccionesDeAuditoria(pagoId)).Count(a => a == "Fondos liberados al transportista"));
-        Assert.Equal("Revocado", (await _e.ClienteIdentity.ConsultarAsync($"/api/autorizaciones-pago/{pagoId}")).Texto("estado"));
+        Assert.Equal("Revocado", (await _e.ClienteIdentityComoBilling.ConsultarAsync($"/api/autorizaciones-pago/{pagoId}")).Texto("estado"));
     }
 
     private static object Evento(Guid eventId, Escenario envio) => new

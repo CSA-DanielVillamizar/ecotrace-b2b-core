@@ -1,6 +1,8 @@
 using EcoTrace.Identity.Api.Contracts;
+using EcoTrace.Identity.Api.Seguridad;
 using EcoTrace.Identity.Domain;
 using EcoTrace.Identity.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,8 +11,10 @@ namespace EcoTrace.Identity.Api.Controllers;
 /// <summary>
 /// Paso 1 del Saga "Liberar Pago en Escrow" (ADR 0003) y su compensación. Billing es el
 /// orquestador; Identity solo registra si la organización receptora está en condiciones de cobrar.
+/// Es una ruta interna: solo la llaman servicios con token de servicio, nunca la app.
 /// </summary>
 [ApiController]
+[Authorize(Policy = Politicas.Servicio)]
 [Route("api/autorizaciones-pago")]
 [Produces("application/json")]
 public sealed class AutorizacionesPagoController(IdentityDbContext db, TimeProvider reloj) : ControllerBase
