@@ -34,30 +34,121 @@ Las rutas internas de Identity (`/api/autorizaciones-pago`) ya exigen `role = Se
 
 Identity solo guarda el SHA-256 de cada secreto (`Identity:ClientesServicio` en `appsettings.Development.json`). Los secretos de arriba son solo para desarrollo local; en producción cada servicio recibe el suyo por variable de entorno. Si otro servicio necesita un cliente, se agrega ahí.
 
-El patrón en el cliente HTTP: pedir el token, guardarlo en memoria hasta un minuto antes de que venza, y mandarlo como `Authorization: Bearer ...` en cada llamada. Las pruebas de la plataforma lo hacen así en `tests/EcoTrace.Tests/TestSupport/Acceso.cs` (`TokenDeServicioHandler`), que sirve de referencia.
+El patrón en el cliente HTTP: pedir el token, guardarlo en memoria hasta un minuto antes de que venza, y mandarlo como `Authorization: Bearer ...` en cada llamada. El código está más abajo, en [Cómo llama un servicio a otro](#cómo-llama-un-servicio-a-otro-con-token-de-servicio).
 
 ## Cómo valida un Resource Server (Fleet, Cargo, Billing)
 
-Con `Microsoft.AspNetCore.Authentication.JwtBearer` (versión central en `Directory.Packages.props`), la misma configuración que usa Identity para sí mismo, cambiando la audiencia:
+Con `Microsoft.AspNetCore.Authentication.JwtBearer` (ya está en `Directory.Packages.props`: en el `.csproj` de la Api basta `<PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />`). Identity no publica un documento de discovery de OpenID, solo el JWKS, así que se le pasa al middleware un `ConfigurationManager` que lee ese JWKS:
 
 ```csharp
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using Microsoft.IdentityModel.Tokens;
+
+var identityUrl = builder.Configuration["Servicios:Identity:BaseUrl"]!;
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(o =>
 {
-    o.MapInboundClaims = false;                                   // conserva "role", "sub" y "tenant_id"
+    o.MapInboundClaims = false;                   // conserva "role", "sub" y "tenant_id" con su nombre
+    o.ConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+        $"{identityUrl}/.well-known/jwks.json",
+        new JwksRetriever(),
+        new HttpDocumentRetriever { RequireHttps = false });
     o.TokenValidationParameters = new TokenValidationParameters
     {
         ValidAlgorithms = [SecurityAlgorithms.RsaSha256],
-        ValidIssuer = "https://identity.ecotrace.local/desarrollo",  // de configuración, nunca constante
-        ValidAudience = "ecotrace-cargo",                         // la audiencia de su módulo
+        ValidIssuer = builder.Configuration["Jwt:Emisor"],      // de configuración, nunca constante
+        ValidAudience = builder.Configuration["Jwt:Audiencia"], // "ecotrace-fleet", "ecotrace-cargo" o "ecotrace-billing"
         ClockSkew = TimeSpan.FromSeconds(30),
         RoleClaimType = "role",
-        NameClaimType = "sub",
-        IssuerSigningKeyResolver = ...                            // las claves del JWKS, en memoria
+        NameClaimType = "sub"
     };
 });
+builder.Services.AddAuthorization();
+// ...
+app.UseAuthentication();
+app.UseAuthorization();
+
+/// <summary>Convierte el JWKS de Identity en la configuración que espera JwtBearer.</summary>
+public sealed class JwksRetriever : IConfigurationRetriever<OpenIdConnectConfiguration>
+{
+    public async Task<OpenIdConnectConfiguration> GetConfigurationAsync(
+        string address, IDocumentRetriever retriever, CancellationToken cancel)
+    {
+        var configuracion = new OpenIdConnectConfiguration();
+        foreach (var clave in new JsonWebKeySet(await retriever.GetDocumentAsync(address, cancel)).GetSigningKeys())
+        {
+            configuracion.SigningKeys.Add(clave);
+        }
+
+        return configuracion;
+    }
+}
 ```
 
-El JWKS se descarga una vez (`GET {identity}/.well-known/jwks.json`), se guarda en memoria y se vuelve a pedir solo si llega un `kid` que no está. Así, si Identity se cae, un token válido se sigue validando. El `tenant_id` se lee del token, nunca del cuerpo de la solicitud.
+`ConfigurationManager` descarga el JWKS en la primera solicitud, lo guarda en memoria y lo vuelve a pedir solo si llega un `kid` que no conoce. Se comprobó contra Identity corriendo: token válido `200`, sin token o con la firma alterada `401`, token con `aud` de otro módulo `401`, rol sin permiso `403`, y **con Identity apagado un token válido sigue dando `200`**.
+
+El `tenant_id` se lee del token (`User.FindFirst("tenant_id")`), nunca del cuerpo de la solicitud. Para el `401` genérico y el motivo en el registro, Identity lo hace en `OnChallenge` (ver `src/EcoTrace.Identity/Api/Seguridad/SeguridadExtensions.cs`).
+
+## Cómo llama un servicio a otro con token de servicio
+
+Un proveedor que pide el token a Identity y lo guarda hasta un minuto antes de que venza, y un `DelegatingHandler` que lo pone en cada llamada. Se usa un cliente aparte (`identity-auth`) para pedir el token, así el handler no se llama a sí mismo:
+
+```csharp
+builder.Services.AddHttpClient("identity-auth", c => c.BaseAddress = new Uri(identityUrl));
+builder.Services.AddSingleton<ProveedorTokenServicio>();
+
+// Ejemplo en Billing: el cliente que ya existe hacia Identity, ahora con su token.
+builder.Services.AddHttpClient(ServiciosExternos.Identity, /* configuración actual */)
+    .AddHttpMessageHandler(sp => new TokenDeServicioHandler(
+        sp.GetRequiredService<ProveedorTokenServicio>(), "ecotrace-identity"));
+
+public sealed class ProveedorTokenServicio(IHttpClientFactory fabrica, IConfiguration configuracion)
+{
+    private readonly SemaphoreSlim _candado = new(1, 1);
+    private readonly Dictionary<string, (string Token, DateTime RenovarEn)> _cache = new();
+
+    public async Task<string> ObtenerAsync(string audiencia, CancellationToken ct)
+    {
+        await _candado.WaitAsync(ct);
+        try
+        {
+            if (_cache.TryGetValue(audiencia, out var guardado) && DateTime.UtcNow < guardado.RenovarEn)
+            {
+                return guardado.Token;
+            }
+
+            var respuesta = await fabrica.CreateClient("identity-auth").PostAsJsonAsync("/api/auth/token-servicio", new
+            {
+                clientId = configuracion["Identity:ClientId"],
+                clientSecret = configuracion["Identity:ClientSecret"],
+                audiencia
+            }, ct);
+            respuesta.EnsureSuccessStatusCode();
+            var cuerpo = await respuesta.Content.ReadFromJsonAsync<JsonElement>(ct);
+            var token = cuerpo.GetProperty("accessToken").GetString()!;
+            var expira = cuerpo.GetProperty("expiraEn").GetDateTime().ToUniversalTime();
+            _cache[audiencia] = (token, expira.AddMinutes(-1));
+            return token;
+        }
+        finally
+        {
+            _candado.Release();
+        }
+    }
+}
+
+public sealed class TokenDeServicioHandler(ProveedorTokenServicio proveedor, string audiencia) : DelegatingHandler
+{
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage solicitud, CancellationToken ct)
+    {
+        solicitud.Headers.Authorization = new AuthenticationHeaderValue("Bearer", await proveedor.ObtenerAsync(audiencia, ct));
+        return await base.SendAsync(solicitud, ct);
+    }
+}
+```
+
+`Identity:ClientSecret` va en `appsettings.Development.json` del servicio (con el secreto de desarrollo de la tabla de arriba) y en producción por variable de entorno (`Identity__ClientSecret`). Si Identity no responde al pedir el token, la llamada falla como cualquier fallo de red y la resiliencia que ya tienen (reintentos del Saga, Outbox) la cubre.
 
 ## Quién puede llamar qué en Identity
 
