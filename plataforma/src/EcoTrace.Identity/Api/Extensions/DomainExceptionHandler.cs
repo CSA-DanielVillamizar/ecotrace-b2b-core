@@ -26,6 +26,7 @@ internal sealed class DomainExceptionHandler(
             DomainErrorKind.Validation => (StatusCodes.Status400BadRequest, "El dato no es válido"),
             DomainErrorKind.Conflict => (StatusCodes.Status409Conflict, "La operación choca con el estado actual"),
             DomainErrorKind.NotFound => (StatusCodes.Status404NotFound, "El recurso no existe"),
+            DomainErrorKind.Forbidden => (StatusCodes.Status403Forbidden, "Sin permiso"),
             _ => (StatusCodes.Status500InternalServerError, "Error inesperado")
         };
 
