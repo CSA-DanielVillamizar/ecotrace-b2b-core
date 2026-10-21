@@ -95,6 +95,28 @@ namespace EcoTrace.CargoTracking.Infrastructure.Migrations
                     b.ToTable("Cargas", (string)null);
                 });
 
+            modelBuilder.Entity("EcoTrace.CargoTracking.Domain.OperacionProcesada", b =>
+                {
+                    b.Property<Guid>("OperacionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CargaId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ProcesadaEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Resultado")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("OperacionId");
+
+                    b.HasIndex("CargaId");
+
+                    b.ToTable("OperacionesProcesadas", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.CargoTracking.Domain.OutboxMensaje", b =>
                 {
                     b.Property<Guid>("EventoId")
@@ -180,6 +202,15 @@ namespace EcoTrace.CargoTracking.Infrastructure.Migrations
                     b.HasOne("EcoTrace.CargoTracking.Domain.Carga", null)
                         .WithOne("Asignacion")
                         .HasForeignKey("EcoTrace.CargoTracking.Domain.AsignacionCarga", "CargaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EcoTrace.CargoTracking.Domain.OperacionProcesada", b =>
+                {
+                    b.HasOne("EcoTrace.CargoTracking.Domain.Carga", null)
+                        .WithMany()
+                        .HasForeignKey("CargaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
