@@ -3,17 +3,88 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controles="clr-namespace:EcoTrace.App.Controles"
              x:Class="EcoTrace.App.Modulos.Cargo.CargoPage"
-             Title="{Binding Titulo}">
+             Title="Cargas">
     <ScrollView>
         <VerticalStackLayout Spacing="0">
 
-            <controles:EncabezadoView Etiqueta="{Binding Escuadron}"
-                                      Titulo="{Binding Descripcion}"
+            <controles:EncabezadoView Etiqueta="CARGO &amp; TRACKING"
+                                      Titulo="Tus cargas y entregas"
                                       Subtitulo="Confirma entregas sin señal: la acción queda guardada y se envía sola." />
 
             <VerticalStackLayout Padding="16,18,16,24" Spacing="14">
-                <!-- Esqueleto: el escuadron reemplaza esta tarjeta por sus pantallas reales. -->
-                <controles:GuiaDelModuloView />
+
+                <Button Text="{Binding BotonTexto}" Command="{Binding Actualizar}" Style="{StaticResource Primario}" />
+
+                <!-- Por qué no se pudo actualizar (sin señal, sin sesión, servidor caído). Los datos guardados siguen a la vista. -->
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource AdvertenciaFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneAviso}" Padding="14,10">
+                    <Label Text="{Binding Aviso}" TextColor="{StaticResource AdvertenciaTexto}" FontSize="14" />
+                </Border>
+
+                <!-- Sin cargas todavía: se explica en vez de dejar un hueco. -->
+                <Border Style="{StaticResource Tarjeta}" IsVisible="{Binding Vacia}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Todavía no tienes cargas" FontAttributes="Bold" />
+                        <Label Style="{StaticResource Apoyo}"
+                               Text="Cuando te asignen una carga aparece aquí. Si ya te la asignaron, toca Actualizar con conexión." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cargas}" Spacing="12">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Tarjeta}" Padding="0">
+                                <Grid ColumnDefinitions="6,*" ColumnSpacing="0">
+                                    <BoxView Grid.Column="0" Color="{Binding EstadoColor}" CornerRadius="0" />
+                                    <VerticalStackLayout Grid.Column="1" Padding="14,12" Spacing="6">
+
+                                        <Label Text="{Binding Descripcion}" FontAttributes="Bold" />
+                                        <Label Text="{Binding Ruta}" Style="{StaticResource Apoyo}" />
+                                        <Label Text="{Binding PesoTexto}" Style="{StaticResource Apoyo}" />
+
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Border Padding="10,4" StrokeThickness="0" BackgroundColor="{Binding EstadoFondo}">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="10" />
+                                                </Border.StrokeShape>
+                                                <Label Text="{Binding EstadoTexto}" FontSize="12" FontAttributes="Bold"
+                                                       TextColor="{Binding EstadoColor}" />
+                                            </Border>
+                                            <Label Text="Pendiente de sincronizar" IsVisible="{Binding PendienteDeSync}"
+                                                   Style="{StaticResource Apoyo}" VerticalOptions="Center" />
+                                        </HorizontalStackLayout>
+
+                                        <!-- La última acción de esta carga la rechazó el servidor: se conserva y se explica por qué. -->
+                                        <Border StrokeThickness="0" Padding="10,8" BackgroundColor="{StaticResource ErrorFondo}"
+                                                IsVisible="{Binding TieneRechazo}">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="10" />
+                                            </Border.StrokeShape>
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding RechazoTitulo}" FontSize="13" FontAttributes="Bold"
+                                                       TextColor="{StaticResource ErrorTexto}" />
+                                                <Label Text="{Binding RechazoMotivo}" FontSize="13"
+                                                       TextColor="{StaticResource ErrorTexto}" />
+                                            </VerticalStackLayout>
+                                        </Border>
+
+                                        <FlexLayout BindableLayout.ItemsSource="{Binding Acciones}" Wrap="Wrap"
+                                                    IsVisible="{Binding TieneAcciones}" Margin="0,4,0,0">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Text="{Binding Texto}" Command="{Binding Comando}"
+                                                            Style="{StaticResource Primario}"
+                                                            HeightRequest="42" FontSize="14" Margin="0,0,8,8" />
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </FlexLayout>
+
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
 
                 <Label Text="Acciones de este módulo" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
                 <controles:ListaOperacionesView Modulo="Cargo" />
