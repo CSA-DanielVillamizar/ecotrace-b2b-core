@@ -20,6 +20,9 @@ public static class Claims
 {
     public const string Rol = "role";
     public const string TenantId = "tenant_id";
+
+    /// <summary>Id de la sesión (el refresh token del login). Solo lo llevan los tokens de usuario.</summary>
+    public const string Sesion = "sid";
 }
 
 public static class Politicas
@@ -44,6 +47,13 @@ public static class PrincipalExtensions
         Guid.TryParse(usuario.FindFirstValue(Claims.TenantId), out var id) ? id : null;
 
     public static bool EsServicio(this ClaimsPrincipal usuario) => usuario.IsInRole(Roles.Servicio);
+
+    /// <summary>El usuario del token (<c>sub</c>), o null si es un token de servicio.</summary>
+    public static Guid? UserId(this ClaimsPrincipal usuario) =>
+        Guid.TryParse(usuario.FindFirstValue("sub"), out var id) ? id : null;
+
+    public static Guid? SesionId(this ClaimsPrincipal usuario) =>
+        Guid.TryParse(usuario.FindFirstValue(Claims.Sesion), out var id) ? id : null;
 }
 
 /// <summary>Reglas de aislamiento por organización (Trabajo 3: el <c>tenant_id</c> manda).</summary>

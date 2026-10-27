@@ -16,19 +16,20 @@ public sealed class EmisorDeTokens(ClavesDeFirma claves, IOptions<OpcionesJwt> o
 {
     private static readonly JsonWebTokenHandler Manejador = new();
 
-    public TokenEmitido EmitirDeUsuario(Guid userId, Guid tenantId, string rol) =>
-        Emitir(userId.ToString(), tenantId, rol, opciones.Value.Audiencias, TimeSpan.FromMinutes(opciones.Value.MinutosAcceso));
+    /// <param name="sesionId">Id del refresh token de esta sesión (claim <c>sid</c>): permite cerrar las demás sin cerrar esta.</param>
+    public TokenEmitido EmitirDeUsuario(Guid userId, Guid tenantId, string rol, Guid sesionId) =>
+        Emitir(userId.ToString(), tenantId, rol, opciones.Value.Audiencias, TimeSpan.FromMinutes(opciones.Value.MinutosAcceso), sesionId);
 
     /// <summary>Token de 5 minutos para llamadas entre servicios: <c>role = Servicio</c>, sin organización.</summary>
     public TokenEmitido EmitirDeServicio(string clientId, string audiencia) =>
-        Emitir($"servicio:{clientId}", tenantId: null, Roles.Servicio, [audiencia], TimeSpan.FromMinutes(opciones.Value.MinutosServicio));
+        Emitir($"servicio:{clientId}", tenantId: null, Roles.Servicio, [audiencia], TimeSpan.FromMinutes(opciones.Value.MinutosServicio), sesionId: null);
 
     /// <summary>Valor opaco y aleatorio (256 bits). Solo el cliente lo conoce en claro.</summary>
     public static string NuevoTokenRefresco() => Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));
 
     public static string Hash(string valor) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(valor)));
 
-    private TokenEmitido Emitir(string sub, Guid? tenantId, string rol, string[] audiencias, TimeSpan duracion)
+    private TokenEmitido Emitir(string sub, Guid? tenantId, string rol, string[] audiencias, TimeSpan duracion, Guid? sesionId)
     {
         var ahora = reloj.GetUtcNow().UtcDateTime;
         var expira = ahora.Add(duracion);
@@ -44,6 +45,11 @@ public sealed class EmisorDeTokens(ClavesDeFirma claves, IOptions<OpcionesJwt> o
         if (tenantId is not null)
         {
             claims[Claims.TenantId] = tenantId.Value.ToString();
+        }
+
+        if (sesionId is not null)
+        {
+            claims[Claims.Sesion] = sesionId.Value.ToString();
         }
 
         var token = Manejador.CreateToken(new SecurityTokenDescriptor

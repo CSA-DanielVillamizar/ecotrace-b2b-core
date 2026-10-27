@@ -49,6 +49,33 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                     b.ToTable("AutorizacionesPago", (string)null);
                 });
 
+            modelBuilder.Entity("EcoTrace.Identity.Domain.OperacionProcesada", b =>
+                {
+                    b.Property<Guid>("OperacionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ProcesadaEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Resultado")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("OperacionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("OperacionesProcesadas", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.Identity.Domain.Role", b =>
                 {
                     b.Property<int>("RoleId")
@@ -253,6 +280,10 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                     b.Property<int>("RoleId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
 
@@ -274,6 +305,15 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EcoTrace.Identity.Domain.OperacionProcesada", b =>
+                {
+                    b.HasOne("EcoTrace.Identity.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

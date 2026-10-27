@@ -58,11 +58,12 @@ public sealed class AuthController(
 
         var refresco = EmisorDeTokens.NuevoTokenRefresco();
         var ahora = reloj.GetUtcNow().UtcDateTime;
-        db.TokensRefresco.Add(TokenRefresco.Crear(
-            usuario.UserId, EmisorDeTokens.Hash(refresco), ahora, TimeSpan.FromDays(jwt.Value.DiasRefresco)));
+        var sesion = TokenRefresco.Crear(
+            usuario.UserId, EmisorDeTokens.Hash(refresco), ahora, TimeSpan.FromDays(jwt.Value.DiasRefresco));
+        db.TokensRefresco.Add(sesion);
         await db.GuardarAsync("No se pudo iniciar la sesión.", ct);
 
-        var acceso = emisor.EmitirDeUsuario(usuario.UserId, usuario.TenantId, usuario.Role!.Nombre);
+        var acceso = emisor.EmitirDeUsuario(usuario.UserId, usuario.TenantId, usuario.Role!.Nombre, sesion.TokenRefrescoId);
         registro.LogInformation("Sesión iniciada para {UserId}.", usuario.UserId);
         return new SesionResponse(acceso.Token, refresco, acceso.ExpiraEn);
     }
@@ -86,7 +87,7 @@ public sealed class AuthController(
             .FirstAsync(u => u.UserId == token.UserId, ct);
         ExigirOrganizacionActiva(usuario.Tenant!);
 
-        var acceso = emisor.EmitirDeUsuario(usuario.UserId, usuario.TenantId, usuario.Role!.Nombre);
+        var acceso = emisor.EmitirDeUsuario(usuario.UserId, usuario.TenantId, usuario.Role!.Nombre, token.TokenRefrescoId);
         return new SesionResponse(acceso.Token, solicitud.RefreshToken!, acceso.ExpiraEn);
     }
 

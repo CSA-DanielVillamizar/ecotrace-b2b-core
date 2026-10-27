@@ -9,6 +9,11 @@ namespace EcoTrace.Identity.Api.Extensions;
 /// registra cada excepcion: una regla de negocio rechazada es informacion, un fallo inesperado
 /// es un error. El middleware de ASP.NET 8 registra ambos como error, por eso su categoria se
 /// silencia en ApiDefaults y este manejador asume el registro.
+/// <para>
+/// Trabajo 3 (ADR 0005): un 400 o un 409 llevan <c>tipoConflicto</c>, que es lo que la app lee para decidir
+/// qué hacer con la acción de su cola. 400 es A (el dato se puede corregir) y 409 es B (el servidor decidió).
+/// C (edición concurrente) no se infiere: Identity no tiene hoy un caso así.
+/// </para>
 /// </summary>
 internal sealed class DomainExceptionHandler(
     IProblemDetailsService problemas, ILogger<DomainExceptionHandler> registro) : IExceptionHandler
@@ -34,12 +39,24 @@ internal sealed class DomainExceptionHandler(
             "Regla de negocio: {Estado} en {Metodo} {Ruta}: {Detalle}",
             estado, http.Request.Method, http.Request.Path, dominio.Message);
 
+        var problema = new ProblemDetails { Status = estado, Title = titulo, Detail = dominio.Message };
+        var tipoConflicto = dominio.Kind switch
+        {
+            DomainErrorKind.Validation => "A",
+            DomainErrorKind.Conflict => "B",
+            _ => null
+        };
+        if (tipoConflicto is not null)
+        {
+            problema.Extensions["tipoConflicto"] = tipoConflicto;
+        }
+
         http.Response.StatusCode = estado;
         return await problemas.TryWriteAsync(new ProblemDetailsContext
         {
             HttpContext = http,
             Exception = excepcion,
-            ProblemDetails = new ProblemDetails { Status = estado, Title = titulo, Detail = dominio.Message }
+            ProblemDetails = problema
         });
     }
 }

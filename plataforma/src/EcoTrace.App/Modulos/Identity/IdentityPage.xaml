@@ -2,23 +2,125 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controles="clr-namespace:EcoTrace.App.Controles"
+             xmlns:identity="clr-namespace:EcoTrace.App.Modulos.Identity"
              x:Class="EcoTrace.App.Modulos.Identity.IdentityPage"
-             Title="{Binding Titulo}">
+             x:DataType="identity:PerfilViewModel"
+             Title="Perfil">
     <ScrollView>
         <VerticalStackLayout Spacing="0">
 
-            <controles:EncabezadoView Etiqueta="{Binding Escuadron}"
-                                      Titulo="{Binding Descripcion}"
-                                      Subtitulo="El inicio de sesión vive aquí. El token se guarda en SecureStorage, nunca en SQLite." />
+            <controles:EncabezadoView Etiqueta="Identity"
+                                      Titulo="Tu sesión y tus datos"
+                                      Subtitulo="Tu sesión se guarda cifrada en el teléfono. Los cambios se envían cuando hay señal." />
 
-            <VerticalStackLayout Padding="16,18,16,24" Spacing="14">
-                <!-- Esqueleto: el escuadron reemplaza esta tarjeta por sus pantallas reales. -->
-                <controles:GuiaDelModuloView />
+            <!-- Sin sesion: el inicio de sesion. Necesita senal y nunca se guarda para despues. -->
+            <VerticalStackLayout Padding="16,18,16,24" Spacing="14" IsVisible="{Binding SinSesion}">
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource AdvertenciaFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneMotivoDeCierre}" Padding="14,10">
+                    <Label Text="{Binding MotivoDeCierre}" TextColor="{StaticResource AdvertenciaTexto}" FontSize="14" />
+                </Border>
+
+                <Border Style="{StaticResource Tarjeta}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Inicia sesión" Style="{StaticResource Seccion}" />
+                        <Label Text="CORREO" Style="{StaticResource Etiqueta}" />
+                        <Entry Text="{Binding Email}" Keyboard="Email" Placeholder="tu.correo@empresa.co"
+                               IsSpellCheckEnabled="False" IsTextPredictionEnabled="False" />
+                        <Label Text="CONTRASEÑA" Style="{StaticResource Etiqueta}" />
+                        <Entry Text="{Binding Password}" IsPassword="True" Placeholder="Tu contraseña" />
+                        <Button Text="Iniciar sesión" Command="{Binding IniciarSesion}" Style="{StaticResource Primario}" Margin="0,6,0,0" />
+                        <Label Style="{StaticResource Apoyo}"
+                               Text="Para iniciar sesión necesitas señal. Después puedes seguir trabajando sin conexión." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource ErrorFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneMensaje}" Padding="14,10">
+                    <Label Text="{Binding Mensaje}" TextColor="{StaticResource ErrorTexto}" FontSize="14" />
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- Con sesion: el perfil guardado (se ve en modo avion), el cambio de datos y la sesion. -->
+            <VerticalStackLayout Padding="16,18,16,24" Spacing="14" IsVisible="{Binding SesionIniciada}">
+
+                <Border Style="{StaticResource Tarjeta}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="{Binding Nombre}" FontSize="20" FontAttributes="Bold" />
+                        <Label Text="{Binding Correo}" Style="{StaticResource Apoyo}" />
+                        <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="2" Margin="0,10,0,0">
+                            <Label Grid.Row="0" Grid.Column="0" Text="ROL" Style="{StaticResource Etiqueta}" />
+                            <Label Grid.Row="1" Grid.Column="0" Text="{Binding Rol}" />
+                            <Label Grid.Row="0" Grid.Column="1" Text="TELÉFONO" Style="{StaticResource Etiqueta}" />
+                            <Label Grid.Row="1" Grid.Column="1" Text="{Binding Telefono}" />
+                            <Label Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Text="ORGANIZACIÓN" Style="{StaticResource Etiqueta}" Margin="0,8,0,0" />
+                            <Label Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding Organizacion}" />
+                        </Grid>
+                        <BoxView HeightRequest="1" Color="{StaticResource LineaSuave}" Margin="0,10" />
+                        <Label Style="{StaticResource Apoyo}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Último inicio de sesión: " />
+                                    <Span Text="{Binding UltimoLogin}" FontAttributes="Bold" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                        <Label Style="{StaticResource Apoyo}">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="Última sincronización: " />
+                                    <Span Text="{Binding UltimaSincronizacion}" FontAttributes="Bold" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- El cambio pendiente (regla de oro: la pantalla se actualiza de inmediato). -->
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource InfoFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneAviso}" Padding="14,10">
+                    <Label Text="{Binding Aviso}" TextColor="{StaticResource InfoTexto}" FontSize="14" />
+                </Border>
+
+                <!-- El ultimo rechazo, con su tipo de conflicto y el motivo que dio el servidor. -->
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource ErrorFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneRechazo}" Padding="14,10">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="{Binding ConflictoDelRechazo}" TextColor="{StaticResource ErrorTexto}" FontAttributes="Bold" FontSize="14" />
+                        <Label Text="{Binding Rechazo}" TextColor="{StaticResource ErrorTexto}" FontSize="14" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource Tarjeta}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Tus datos" Style="{StaticResource Seccion}" />
+                        <Label Text="NOMBRE" Style="{StaticResource Etiqueta}" />
+                        <Entry Text="{Binding NombreEditado}" Placeholder="Tu nombre" />
+                        <Label Text="TELÉFONO" Style="{StaticResource Etiqueta}" />
+                        <Entry Text="{Binding TelefonoEditado}" Keyboard="Telephone" Placeholder="+57 300 123 4567" />
+                        <Button Text="{Binding BotonGuardar}" Command="{Binding GuardarCambios}" Style="{StaticResource Primario}" Margin="0,6,0,0" />
+                        <Label Style="{StaticResource Apoyo}"
+                               Text="El cambio se guarda en el teléfono y se envía solo cuando haya señal." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource InfoFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneMensaje}" Padding="14,10">
+                    <Label Text="{Binding Mensaje}" TextColor="{StaticResource InfoTexto}" FontSize="14" />
+                </Border>
+
+                <Button Text="Actualizar ahora" Command="{Binding Refrescar}"
+                        BackgroundColor="{StaticResource Superficie}" TextColor="{StaticResource Brand}"
+                        BorderColor="{StaticResource Brand}" BorderWidth="1" CornerRadius="14" HeightRequest="46" />
+                <Button Text="Cerrar sesión en otros dispositivos" Command="{Binding CerrarOtrasSesiones}"
+                        BackgroundColor="{StaticResource Superficie}" TextColor="{StaticResource Brand}"
+                        BorderColor="{StaticResource Brand}" BorderWidth="1" CornerRadius="14" HeightRequest="46" />
+                <Button Text="Cerrar sesión" Command="{Binding CerrarSesion}"
+                        BackgroundColor="{StaticResource Superficie}" TextColor="{StaticResource ErrorTexto}"
+                        BorderColor="{StaticResource ErrorTexto}" BorderWidth="1" CornerRadius="14" HeightRequest="46" />
 
                 <Label Text="Acciones de este módulo" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
                 <controles:ListaOperacionesView Modulo="Identity" />
             </VerticalStackLayout>
-
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>
