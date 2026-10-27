@@ -69,12 +69,27 @@ public sealed record CrearUserRequest
 }
 
 public sealed record UserResponse(
-    Guid UserId, Guid TenantId, string Role, string Nombre, string Email, DateTime CreadoEn)
+    Guid UserId, Guid TenantId, string Role, string Nombre, string Email, DateTime CreadoEn, string? Telefono = null)
 {
     public static UserResponse De(User usuario) =>
         new(usuario.UserId, usuario.TenantId, usuario.Role?.Nombre ?? string.Empty,
-            usuario.Nombre, usuario.Email, usuario.CreadoEn);
+            usuario.Nombre, usuario.Email, usuario.CreadoEn, usuario.Telefono);
 }
+
+/// <summary>Cambio de perfil que el usuario hace desde la app. Se manda completo: un teléfono vacío lo borra.</summary>
+public sealed record ActualizarPerfilRequest(string? Nombre, string? Telefono);
+
+/// <summary>El perfil del usuario del token, con lo que la app guarda en caché para mostrarlo sin señal.</summary>
+public sealed record PerfilResponse(
+    Guid UserId, Guid TenantId, string Nombre, string Email, string? Telefono, string Role,
+    string Organizacion, EstadoTenant EstadoOrganizacion)
+{
+    public static PerfilResponse De(User usuario) =>
+        new(usuario.UserId, usuario.TenantId, usuario.Nombre, usuario.Email, usuario.Telefono,
+            usuario.Role!.Nombre, usuario.Tenant!.Nombre, usuario.Tenant.Estado);
+}
+
+public sealed record CierreOtrasSesionesResponse(int SesionesCerradas);
 
 public sealed record RoleResponse(int RoleId, string Nombre, string[] Permisos)
 {
