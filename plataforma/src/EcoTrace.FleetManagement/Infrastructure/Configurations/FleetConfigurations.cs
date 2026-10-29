@@ -77,6 +77,10 @@ internal sealed class NovedadConfiguration : IEntityTypeConfiguration<Novedad>
         builder.Property(n => n.OcurridaEn).IsRequired();
         builder.Property(n => n.RecibidaEn).IsRequired();
 
+        // Una acción de la app se procesa una sola vez: el índice único frena también dos reintentos simultáneos.
+        builder.Property(n => n.ClaveIdempotencia);
+        builder.HasIndex(n => n.ClaveIdempotencia).IsUnique();
+
         // Referencias externas: columnas planas, sin FK.
         builder.Property(n => n.TenantId).IsRequired();
         builder.Property(n => n.ReportadaPorUserId).IsRequired();

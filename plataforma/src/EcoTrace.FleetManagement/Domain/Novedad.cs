@@ -47,10 +47,21 @@ public sealed class Novedad
 
     public DateTime RecibidaEn { get; private set; }
 
+    /// <summary>
+    /// El OperationId que generó la app al guardar la acción, recibido en el encabezado Idempotency-Key.
+    /// Es único: si la misma acción llega dos veces, la segunda no crea otra novedad (ADR 0005).
+    /// </summary>
+    public Guid? ClaveIdempotencia { get; private set; }
+
     public static Novedad Reportar(
         Vehiculo vehiculo, Guid reportadaPorUserId, Guid? cargaId, TipoNovedad tipo, string? descripcion,
-        DateTime ocurridaEnUtc, DateTime ahoraUtc)
+        DateTime ocurridaEnUtc, DateTime ahoraUtc, Guid claveIdempotencia)
     {
+        if (claveIdempotencia == Guid.Empty)
+        {
+            throw DomainException.Validation("Falta el encabezado Idempotency-Key con el OperationId de la acción.");
+        }
+
         if (reportadaPorUserId == Guid.Empty)
         {
             throw DomainException.Validation("El usuario que reporta la novedad es obligatorio.");
@@ -83,7 +94,8 @@ public sealed class Novedad
             Tipo = tipo,
             Descripcion = texto,
             OcurridaEn = ocurridaEnUtc,
-            RecibidaEn = ahoraUtc
+            RecibidaEn = ahoraUtc,
+            ClaveIdempotencia = claveIdempotencia
         };
     }
 }

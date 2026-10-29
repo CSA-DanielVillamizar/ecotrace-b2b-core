@@ -73,6 +73,9 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
                     b.Property<Guid?>("CargaId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("ClaveIdempotencia")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Descripcion")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -99,6 +102,9 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("NovedadId");
+
+                    b.HasIndex("ClaveIdempotencia")
+                        .IsUnique();
 
                     b.HasIndex("TenantId");
 
