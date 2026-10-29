@@ -3,18 +3,77 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controles="clr-namespace:EcoTrace.App.Controles"
              x:Class="EcoTrace.App.Modulos.Fleet.FleetPage"
-             Title="{Binding Titulo}">
+             Title="Vehículo">
     <ScrollView>
         <VerticalStackLayout Spacing="0">
 
-            <controles:EncabezadoView Etiqueta="{Binding Escuadron}"
-                                      Titulo="{Binding Descripcion}"
+            <controles:EncabezadoView Etiqueta="Fleet Management"
+                                      Titulo="Tu vehículo y tu estado"
                                       Subtitulo="Reporta novedades aunque no haya señal; se envían cuando vuelva." />
 
             <VerticalStackLayout Padding="16,18,16,24" Spacing="14">
-                <!-- Esqueleto: el escuadron reemplaza esta tarjeta por sus pantallas reales. -->
-                <controles:GuiaDelModuloView />
 
+                <!-- Por qué se ven datos guardados: sin señal, Fleet no respondió, falta iniciar sesión... -->
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource AdvertenciaFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneAviso}" Padding="14,10">
+                    <Label Text="{Binding Aviso}" TextColor="{StaticResource AdvertenciaTexto}" FontSize="14" />
+                </Border>
+
+                <!-- Nunca hubo conexión: no hay nada guardado todavía. -->
+                <Border Style="{StaticResource Tarjeta}" IsVisible="{Binding SinAsignacion}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Todavía no hay datos de tu vehículo" FontAttributes="Bold" />
+                        <Label Style="{StaticResource Apoyo}"
+                               Text="Inicia sesión y actualiza con señal una vez; después se ven aunque no haya conexión." />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- El conductor y su vehículo, de Fleet o de la caché. -->
+                <Border Style="{StaticResource Tarjeta}" IsVisible="{Binding TieneAsignacion}">
+                    <VerticalStackLayout Spacing="10">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="Conductor" Style="{StaticResource Etiqueta}" />
+                            <Label Text="{Binding NombreConductor}" FontSize="18" FontAttributes="Bold" />
+                            <Label Text="{Binding DetalleConductor}" Style="{StaticResource Apoyo}" />
+                        </VerticalStackLayout>
+
+                        <BoxView HeightRequest="1" Color="{StaticResource LineaSuave}" />
+
+                        <VerticalStackLayout Spacing="2" IsVisible="{Binding TieneVehiculo}">
+                            <Label Text="Vehículo" Style="{StaticResource Etiqueta}" />
+                            <Label Text="{Binding Placa}" FontSize="22" FontAttributes="Bold" TextColor="{StaticResource PetrolStrong}" />
+                            <Label Text="{Binding DetalleVehiculo}" Style="{StaticResource Apoyo}" />
+                            <Label Text="{Binding CargaTexto}" Style="{StaticResource Apoyo}" />
+                        </VerticalStackLayout>
+
+                        <Label Text="No tienes un vehículo asignado: aparece cuando te asignan una carga."
+                               Style="{StaticResource Apoyo}" IsVisible="{Binding SinVehiculo}" />
+
+                        <Label Text="{Binding GuardadoTexto}" FontSize="12" TextColor="{StaticResource Muted}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="Actualizar" Clicked="AlActualizar" Style="{StaticResource Primario}" />
+
+                <!-- La acción encolada del módulo: reportar una novedad del vehículo. -->
+                <Label Text="Reportar una novedad" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
+                <Border Style="{StaticResource Tarjeta}">
+                    <VerticalStackLayout Spacing="10">
+                        <Picker Title="Tipo de novedad"
+                                ItemsSource="{Binding TiposDeNovedad}"
+                                SelectedIndex="{Binding TipoSeleccionado}" />
+                        <Editor Placeholder="¿Qué le pasó al vehículo?"
+                                Text="{Binding Descripcion}"
+                                AutoSize="TextChanges"
+                                MaxLength="500" />
+                        <Button Text="Guardar novedad" Clicked="AlReportar"
+                                IsEnabled="{Binding PuedeReportar}" Style="{StaticResource Primario}" />
+                        <Label Text="{Binding Mensaje}" IsVisible="{Binding TieneMensaje}"
+                               TextColor="{StaticResource InfoTexto}" FontSize="14" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Cada novedad con su estado. Una rechazada muestra su conflicto (A, B o C) y el motivo. -->
                 <Label Text="Acciones de este módulo" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
                 <controles:ListaOperacionesView Modulo="Fleet" />
             </VerticalStackLayout>

@@ -270,6 +270,83 @@ public sealed class FleetModuloTests : IDisposable
         Assert.Contains("reservado para otra carga", novedad.MotivoRechazo);
     }
 
+    // ---- Pantalla (FleetViewModel) -------------------------------------------------------------
+
+    [Fact]
+    public async Task La_pantalla_muestra_el_conductor_y_el_vehiculo_que_responde_Fleet()
+    {
+        var pantalla = new FleetViewModel(_servicio, _motor, _conectividad);
+
+        await pantalla.CargarAsync();
+
+        Assert.Equal("Carlos Ruiz", pantalla.NombreConductor);
+        Assert.Equal("ABC123", pantalla.Placa);
+        Assert.Equal("5000 kg · Reservado", pantalla.DetalleVehiculo);
+        Assert.False(pantalla.TieneAviso);
+        Assert.True(pantalla.PuedeReportar);
+    }
+
+    [Fact]
+    public async Task Sin_senal_la_pantalla_no_queda_en_blanco_y_dice_que_son_datos_guardados()
+    {
+        await new FleetViewModel(_servicio, _motor, _conectividad).CargarAsync();
+        _conectividad.HayConexion = false;
+        var pantalla = new FleetViewModel(_servicio, _motor, _conectividad);
+
+        await pantalla.CargarAsync();
+
+        Assert.Equal("ABC123", pantalla.Placa);
+        Assert.Contains("Sin conexión", pantalla.Aviso);
+        Assert.StartsWith("Datos de Fleet del", pantalla.GuardadoTexto);
+    }
+
+    [Fact]
+    public async Task Reportar_sin_senal_deja_la_novedad_en_cola_y_limpia_el_formulario()
+    {
+        var pantalla = new FleetViewModel(_servicio, _motor, _conectividad);
+        await pantalla.CargarAsync();
+        _conectividad.HayConexion = false;
+        var llamadasAntes = _fleet.Recibidas.Count;
+
+        pantalla.TipoSeleccionado = 1;
+        pantalla.Descripcion = "Llanta trasera pinchada";
+        await pantalla.ReportarAsync();
+
+        var novedad = Assert.Single(await _cola.ListarAsync(modulo: "Fleet"));
+        Assert.Equal(EstadoOperacion.PendienteSync, novedad.Estado);
+        Assert.Equal("Llanta", JsonSerializer.Deserialize<DatosNovedad>(novedad.Payload)!.Tipo);
+        Assert.Equal(llamadasAntes, _fleet.Recibidas.Count);
+        Assert.Empty(pantalla.Descripcion);
+        Assert.Contains("sin conexión", pantalla.Mensaje);
+    }
+
+    [Fact]
+    public async Task Reportar_con_senal_la_envia_enseguida_sin_esperar_al_disparador()
+    {
+        var pantalla = new FleetViewModel(_servicio, _motor, _conectividad);
+        await pantalla.CargarAsync();
+        _fleet.Responder = (_, _) => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created));
+
+        pantalla.Descripcion = "Se encendió la luz del motor";
+        await pantalla.ReportarAsync();
+
+        Assert.Equal(EstadoOperacion.Sincronizado, Assert.Single(await _cola.ListarAsync(modulo: "Fleet")).Estado);
+        Assert.Equal(HttpMethod.Post, _fleet.Recibidas.Last().Metodo);
+    }
+
+    [Fact]
+    public async Task Sin_vehiculo_no_se_puede_reportar()
+    {
+        _fleet.Responder = (_, _) => Task.FromResult(RespuestaYo(conVehiculo: false));
+        var pantalla = new FleetViewModel(_servicio, _motor, _conectividad);
+
+        await pantalla.CargarAsync();
+
+        Assert.True(pantalla.SinVehiculo);
+        Assert.False(pantalla.PuedeReportar);
+        Assert.Equal("Sin carga asignada", pantalla.CargaTexto);
+    }
+
     /// <summary>Lo mismo que responde Fleet en GET /api/conductores/yo.</summary>
     private static HttpResponseMessage RespuestaYo(bool conVehiculo)
     {
