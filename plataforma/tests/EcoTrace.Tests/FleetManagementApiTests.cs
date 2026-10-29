@@ -3,10 +3,10 @@ using EcoTrace.Tests.TestSupport;
 
 namespace EcoTrace.Tests;
 
-public sealed class FleetManagementApiTests(ApiFactory<FleetManagementApiMarker> fabrica)
-    : IClassFixture<ApiFactory<FleetManagementApiMarker>>
+public sealed class FleetManagementApiTests(FleetConIdentity fleet) : IClassFixture<FleetConIdentity>
 {
-    private readonly HttpClient _cliente = fabrica.CreateClient();
+    // Desde el Trabajo 3 toda ruta de Fleet exige un JWT de Identity.
+    private readonly HttpClient _cliente = fleet.ClienteFleet(FleetConIdentity.Token(Guid.NewGuid()));
 
     // Fleet Management no consulta a Identity: los TenantId y UserId de estas pruebas son Guid
     // inventados. Que el servicio los acepte es la prueba de que solo guarda el identificador.

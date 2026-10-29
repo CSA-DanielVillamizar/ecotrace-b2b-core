@@ -1,5 +1,8 @@
 using System.Net;
+using EcoTrace.FleetManagement.Api.Seguridad;
 using EcoTrace.Tests.TestSupport;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EcoTrace.Tests;
 
@@ -29,26 +32,35 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
     public async Task Del_alta_de_organizaciones_a_la_liberacion_del_pago_solo_con_identificadores()
     {
         var identity = await Acceso.ClienteAdministradorAsync(_identity.CreateClient);
-        var fleet = _fleet.CreateClient();
+        // Fleet valida el token con la clave pública que publica este Identity (Trabajo 3).
+        var fleet = _fleet.WithWebHostBuilder(b => b.ConfigureTestServices(servicios =>
+                servicios.AddHttpClient(SeguridadFleet.ClienteJwks).ConfigurePrimaryHttpMessageHandler(() => _identity.Server.CreateHandler())))
+            .CreateClient();
         var cargo = _cargo.CreateClient();
         var billing = _billing.CreateClient();
 
         // 1. Identity emite los identificadores base.
         var generador = await identity.PostearAsync("/api/tenants", new { nombre = "Generadora del Valle S.A.", tenantType = "Generador" });
         var transportista = await identity.PostearAsync("/api/tenants", new { nombre = "Transportes del Cauca", tenantType = "Transportista" });
+        var emailSupervisor = $"marta.{Guid.NewGuid():N}@transportescauca.co";
         var supervisor = await identity.PostearAsync("/api/users", new
         {
             tenantId = transportista.Id("tenantId"),
             role = "Supervisor",
             nombre = "Marta Ríos",
-            email = $"marta.{Guid.NewGuid():N}@transportescauca.co"
+            email = emailSupervisor,
+            password = "Supervisor-2026"
         });
         var generadorId = generador.Id("tenantId");
         var transportistaId = transportista.Id("tenantId");
         var supervisorId = supervisor.Id("userId");
 
-        // Identity deja de existir. Los otros tres contextos siguen operando: no dependen de el
-        // en tiempo de ejecucion, solo guardan los identificadores que recibieron.
+        // La supervisora inicia sesión y Fleet descarga la clave pública de Identity con su primera solicitud.
+        fleet.ConToken(await identity.TokenDeAsync(emailSupervisor, "Supervisor-2026"));
+        Assert.Equal(HttpStatusCode.OK, (await fleet.ConsultarAsync("/api/vehiculos")).Estado);
+
+        // Identity deja de existir. Los otros tres contextos siguen operando: solo guardan los identificadores
+        // que recibieron, y Fleet valida el token con la clave que ya tiene en memoria, sin volver a Identity.
         await _identity.DisposeAsync();
 
         // 2. Fleet Management registra vehiculo y conductor del transportista.

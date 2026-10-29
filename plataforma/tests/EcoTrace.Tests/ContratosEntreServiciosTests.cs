@@ -193,8 +193,8 @@ public sealed class ContratosEntreServiciosTests : IAsyncLifetime
     [Fact]
     public async Task La_simulacion_de_fallos_esta_apagada_por_defecto()
     {
-        await using var fleet = new ApiFactory<FleetManagementApiMarker>();
-        using var cliente = fleet.CreateClient();
+        using var fleet = new FleetConIdentity();
+        using var cliente = fleet.ClienteFleet(FleetConIdentity.TokenDeServicio());
 
         var respuesta = await cliente.PostearAsync("/api/_simulacion/fallos", new { operacion = "liberaciones", cantidad = 3 });
 

@@ -1,12 +1,14 @@
 using EcoTrace.FleetManagement.Api.Contracts;
 using EcoTrace.FleetManagement.Domain;
 using EcoTrace.FleetManagement.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace EcoTrace.FleetManagement.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/conductores")]
 [Produces("application/json")]
 public sealed class ConductoresController(FleetManagementDbContext db, TimeProvider reloj) : ControllerBase
