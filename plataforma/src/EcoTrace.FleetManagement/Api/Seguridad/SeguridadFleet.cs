@@ -91,6 +91,7 @@ public static class SeguridadFleet
         // Un token válido sin el rol pedido recibe 403, no 401: quién es está claro, lo que no tiene es permiso.
         builder.Services.AddAuthorizationBuilder()
             .AddPolicy(Politicas.GestionaFlota, p => p.RequireRole(Roles.Supervisor, Roles.Administrador))
+            .AddPolicy(Politicas.ReportaNovedades, p => p.RequireRole(Roles.Conductor, Roles.Supervisor, Roles.Administrador))
             .AddPolicy(Politicas.Servicio, p => p.RequireRole(Roles.Servicio));
         return builder;
     }

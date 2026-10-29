@@ -19,6 +19,9 @@ public static class Politicas
     /// <summary>Registrar vehículos y conductores: Supervisor o Administrador del transportista.</summary>
     public const string GestionaFlota = nameof(GestionaFlota);
 
+    /// <summary>Reportar novedades de un vehículo: cualquier persona del transportista, empezando por el conductor.</summary>
+    public const string ReportaNovedades = nameof(ReportaNovedades);
+
     /// <summary>Rutas internas que solo llama otro servicio (el Saga de Billing), nunca la app.</summary>
     public const string Servicio = nameof(Servicio);
 }

@@ -65,6 +65,48 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
                     b.ToTable("Conductores", (string)null);
                 });
 
+            modelBuilder.Entity("EcoTrace.FleetManagement.Domain.Novedad", b =>
+                {
+                    b.Property<Guid>("NovedadId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CargaId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Descripcion")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("OcurridaEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("RecibidaEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ReportadaPorUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("VehiculoId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("NovedadId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("VehiculoId");
+
+                    b.ToTable("Novedades", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.FleetManagement.Domain.Vehiculo", b =>
                 {
                     b.Property<Guid>("VehiculoId")
@@ -106,6 +148,15 @@ namespace EcoTrace.FleetManagement.Infrastructure.Migrations
                     b.HasIndex("TenantId");
 
                     b.ToTable("Vehiculos", (string)null);
+                });
+
+            modelBuilder.Entity("EcoTrace.FleetManagement.Domain.Novedad", b =>
+                {
+                    b.HasOne("EcoTrace.FleetManagement.Domain.Vehiculo", null)
+                        .WithMany()
+                        .HasForeignKey("VehiculoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

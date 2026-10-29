@@ -51,6 +51,62 @@ public sealed class AppConductorFleetTests(FleetConIdentity fleet) : IClassFixtu
         Assert.Equal(HttpStatusCode.NotFound, asignacion.Estado);
     }
 
+    // ---- Novedades del vehículo -----------------------------------------------------------------
+
+    [Fact]
+    public async Task El_conductor_reporta_una_novedad_de_su_vehiculo()
+    {
+        var conductor = await PrepararConductorAsync();
+        var cargaId = Guid.NewGuid();
+        var ocurrida = DateTimeOffset.UtcNow.AddHours(-2);
+
+        using var app = fleet.ClienteFleet(conductor.Token);
+        var novedad = await app.PostearAsync($"/api/vehiculos/{conductor.VehiculoId}/novedades",
+            new { tipo = "Llanta", descripcion = "Llanta trasera pinchada en la vía", ocurridaEn = ocurrida, cargaId });
+        var lista = await app.ConsultarAsync($"/api/vehiculos/{conductor.VehiculoId}/novedades");
+
+        Assert.Equal(HttpStatusCode.Created, novedad.Estado);
+        Assert.Equal(conductor.TenantId, novedad.Id("tenantId"));
+        Assert.Equal(cargaId, novedad.Id("cargaId"));
+        Assert.Equal("Llanta", novedad.Texto("tipo"));
+        // Guarda la hora del teléfono, no la de llegada: pudo reportarse sin señal horas antes.
+        Assert.Equal(ocurrida.UtcDateTime, novedad.Propiedad("ocurridaEn").GetDateTime().ToUniversalTime(), TimeSpan.FromSeconds(1));
+        Assert.Equal(1, lista.Cantidad);
+    }
+
+    [Fact]
+    public async Task Rechaza_una_novedad_con_datos_invalidos()
+    {
+        var conductor = await PrepararConductorAsync();
+        using var app = fleet.ClienteFleet(conductor.Token);
+        var ruta = $"/api/vehiculos/{conductor.VehiculoId}/novedades";
+
+        var sinDescripcion = await app.PostearAsync(ruta, new { tipo = "Mecanica", descripcion = "", ocurridaEn = DateTimeOffset.UtcNow });
+        var enElFuturo = await app.PostearAsync(ruta,
+            new { tipo = "Mecanica", descripcion = "Ruido en el motor", ocurridaEn = DateTimeOffset.UtcNow.AddHours(1) });
+        var sinTipo = await app.PostearAsync(ruta, new { descripcion = "Ruido en el motor", ocurridaEn = DateTimeOffset.UtcNow });
+
+        Assert.Equal(HttpStatusCode.BadRequest, sinDescripcion.Estado);
+        Assert.Equal(HttpStatusCode.BadRequest, enElFuturo.Estado);
+        Assert.Contains("futuro", enElFuturo.Texto("detail"));
+        Assert.Equal(HttpStatusCode.BadRequest, sinTipo.Estado);
+    }
+
+    [Fact]
+    public async Task No_se_reportan_novedades_de_un_vehiculo_de_otra_organizacion_ni_de_uno_que_no_existe()
+    {
+        var conductor = await PrepararConductorAsync();
+        var otro = await PrepararConductorAsync();
+        using var app = fleet.ClienteFleet(conductor.Token);
+        var cuerpo = new { tipo = "Otra", descripcion = "Revisión pendiente", ocurridaEn = DateTimeOffset.UtcNow };
+
+        var deOtraOrganizacion = await app.PostearAsync($"/api/vehiculos/{otro.VehiculoId}/novedades", cuerpo);
+        var inexistente = await app.PostearAsync($"/api/vehiculos/{Guid.NewGuid()}/novedades", cuerpo);
+
+        Assert.Equal(HttpStatusCode.Forbidden, deOtraOrganizacion.Estado);
+        Assert.Equal(HttpStatusCode.NotFound, inexistente.Estado);
+    }
+
     /// <summary>
     /// Identity crea la organización y el usuario conductor; la supervisora lo registra en Fleet con su
     /// UserId y registra un vehículo; el conductor inicia sesión.
