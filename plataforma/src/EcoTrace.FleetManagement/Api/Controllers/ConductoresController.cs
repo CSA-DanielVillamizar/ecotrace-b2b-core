@@ -63,6 +63,39 @@ public sealed class ConductoresController(FleetManagementDbContext db, TimeProvi
         return conductores.Select(ConductorResponse.De).ToList();
     }
 
+    /// <summary>
+    /// El conductor que inició sesión y el vehículo con el que trabaja. Fleet no guarda una asignación fija
+    /// entre los dos: los une la carga, porque el Saga reserva vehículo y conductor juntos para la misma carga.
+    /// </summary>
+    [HttpGet("yo")]
+    [ProducesResponseType<AsignacionDelConductorResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AsignacionDelConductorResponse>> Yo(CancellationToken ct)
+    {
+        var tenantId = User.TenantId();
+        var userId = User.UserId();
+        if (tenantId is null || userId is null)
+        {
+            return Forbid();
+        }
+
+        var conductor = await db.Conductores.AsNoTracking()
+                .FirstOrDefaultAsync(c => c.UserId == userId && c.TenantId == tenantId, ct)
+            ?? throw DomainException.NotFound("Tu usuario no está registrado como conductor en Fleet Management.");
+
+        Vehiculo? vehiculo = null;
+        if (conductor.ReservadoParaCargaId is not null)
+        {
+            vehiculo = await db.Vehiculos.AsNoTracking()
+                .FirstOrDefaultAsync(v => v.ReservadoParaCargaId == conductor.ReservadoParaCargaId, ct);
+        }
+
+        return new AsignacionDelConductorResponse(
+            ConductorResponse.De(conductor),
+            vehiculo is null ? null : VehiculoResponse.De(vehiculo),
+            conductor.ReservadoParaCargaId);
+    }
+
     [HttpGet("{id:guid}")]
     [ProducesResponseType<ConductorResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

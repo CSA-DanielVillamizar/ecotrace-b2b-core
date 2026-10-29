@@ -28,6 +28,13 @@ public sealed record ConductorResponse(
 }
 
 /// <summary>
+/// Lo que la app del conductor guarda en caché: su registro de conductor y, si tiene una carga asignada,
+/// el vehículo reservado para esa misma carga. Vehículo y CargaId son null mientras no tenga carga.
+/// </summary>
+public sealed record AsignacionDelConductorResponse(
+    ConductorResponse Conductor, VehiculoResponse? Vehiculo, Guid? CargaId);
+
+/// <summary>
 /// Datos de un vehículo nuevo. La organización y quién lo registra no van aquí: salen del token (Trabajo 3).
 /// </summary>
 public sealed record CrearVehiculoRequest
