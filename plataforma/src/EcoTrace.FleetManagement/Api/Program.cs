@@ -9,6 +9,7 @@ builder.Services.AddSingleton<SimulacionFallos>();
 
 var app = builder.Build();
 app.ApplyMigrations<FleetManagementDbContext>();
+app.SembrarVehiculoConocido();
 app.UseApiDefaults<FleetManagementDbContext>("FleetManagement");
 
 // Después de UseApiDefaults para que el rechazo de un token ya lleve CorrelationId en el registro.
