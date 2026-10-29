@@ -3,16 +3,11 @@ using EcoTrace.FleetManagement.Domain;
 
 namespace EcoTrace.FleetManagement.Api.Contracts;
 
+/// <summary>
+/// Datos de un conductor nuevo. La organización y quién lo registra no van aquí: salen del token (Trabajo 3).
+/// </summary>
 public sealed record CrearConductorRequest
 {
-    /// <summary>Transportista dueño de la flota (TenantId emitido por Identity).</summary>
-    [Required]
-    public Guid? TenantId { get; init; }
-
-    /// <summary>Usuario de Identity que realiza el registro.</summary>
-    [Required]
-    public Guid? RegistradoPorUserId { get; init; }
-
     /// <summary>Cuenta de usuario del propio conductor, si ya existe.</summary>
     public Guid? UserId { get; init; }
 
@@ -32,14 +27,11 @@ public sealed record ConductorResponse(
             c.Estado, c.ReservadoParaCargaId);
 }
 
+/// <summary>
+/// Datos de un vehículo nuevo. La organización y quién lo registra no van aquí: salen del token (Trabajo 3).
+/// </summary>
 public sealed record CrearVehiculoRequest
 {
-    [Required]
-    public Guid? TenantId { get; init; }
-
-    [Required]
-    public Guid? RegistradoPorUserId { get; init; }
-
     [Required]
     public string? Placa { get; init; }
 

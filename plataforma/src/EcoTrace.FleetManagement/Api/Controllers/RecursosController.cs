@@ -1,5 +1,6 @@
 using EcoTrace.FleetManagement.Api.Contracts;
 using EcoTrace.FleetManagement.Api.Extensions;
+using EcoTrace.FleetManagement.Api.Seguridad;
 using EcoTrace.FleetManagement.Domain;
 using EcoTrace.FleetManagement.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
@@ -14,7 +15,7 @@ namespace EcoTrace.FleetManagement.Api.Controllers;
 /// permite a un orquestador reintentar sin duplicar el efecto.
 /// </summary>
 [ApiController]
-[Authorize]
+[Authorize(Policy = Politicas.Servicio)]
 [Produces("application/json")]
 public sealed class RecursosController(
     FleetManagementDbContext db, SimulacionFallos simulacion) : ControllerBase

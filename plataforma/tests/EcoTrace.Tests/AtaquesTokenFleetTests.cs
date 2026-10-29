@@ -8,7 +8,7 @@ namespace EcoTrace.Tests;
 /// <summary>
 /// Pruebas de ataque del Trabajo 3 contra Fleet Management como Resource Server. Fleet valida el token con la
 /// clave pública del Identity real (en memoria): firma, exp, iss y aud. Cualquier token que no sirve se
-/// rechaza con 401 y un cuerpo genérico.
+/// rechaza con 401 y un cuerpo genérico; un token válido sin permiso, con 403.
 /// </summary>
 public sealed class AtaquesTokenFleetTests(FleetConIdentity fleet) : IClassFixture<FleetConIdentity>, IAsyncLifetime
 {
@@ -16,18 +16,38 @@ public sealed class AtaquesTokenFleetTests(FleetConIdentity fleet) : IClassFixtu
 
     private Guid _transportista;
     private string _tokenSupervisor = null!;
+    private string _tokenConductor = null!;
+    private string _tokenServicio = null!;
+    private Guid _vehiculoPropio;
+    private Guid _vehiculoDeOtra;
+    private Guid _conductorDeOtra;
 
     public async Task InitializeAsync()
     {
         using var admin = await Acceso.ClienteAdministradorAsync(fleet.ClienteIdentity);
         _transportista = (await admin.PostearAsync("/api/tenants", new { nombre = "Transportes Fleet", tenantType = "Transportista" })).Id("tenantId");
+        var otraOrganizacion = (await admin.PostearAsync("/api/tenants", new { nombre = "Transportes Otros", tenantType = "Transportista" })).Id("tenantId");
 
-        var email = $"supervisor.{Guid.NewGuid():N}@x.co";
-        await admin.CrearUsuarioAsync(_transportista, "Supervisor", email, "Supervisor-2026");
-        _tokenSupervisor = await admin.TokenDeAsync(email, "Supervisor-2026");
+        // Tokens reales, emitidos por Identity con login o con credenciales de servicio.
+        var sufijo = Guid.NewGuid().ToString("N");
+        await admin.CrearUsuarioAsync(_transportista, "Supervisor", $"supervisor.{sufijo}@x.co", "Supervisor-2026");
+        await admin.CrearUsuarioAsync(_transportista, "Conductor", $"conductor.{sufijo}@x.co", "Conductor-2026");
+        _tokenSupervisor = await admin.TokenDeAsync($"supervisor.{sufijo}@x.co", "Supervisor-2026");
+        _tokenConductor = await admin.TokenDeAsync($"conductor.{sufijo}@x.co", "Conductor-2026");
+        _tokenServicio = await admin.TokenServicioAsync("billing", Acceso.SecretoBilling, "ecotrace-fleet");
+
+        using var supervisor = fleet.ClienteFleet(_tokenSupervisor);
+        _vehiculoPropio = (await supervisor.PostearAsync("/api/vehiculos", new { placa = Placa(), capacidadKg = 5000 })).Id("vehiculoId");
+
+        using var supervisorDeOtra = fleet.ClienteFleet(FleetConIdentity.Token(otraOrganizacion));
+        _vehiculoDeOtra = (await supervisorDeOtra.PostearAsync("/api/vehiculos", new { placa = Placa(), capacidadKg = 5000 })).Id("vehiculoId");
+        _conductorDeOtra = (await supervisorDeOtra.PostearAsync("/api/conductores",
+            new { nombre = "Luis Mora", licencia = $"LIC-{sufijo[..6]}" })).Id("conductorId");
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
+
+    // ---- 401: el token no sirve ----------------------------------------------------------------
 
     [Fact]
     public async Task Un_token_real_de_Identity_pasa()
@@ -132,11 +152,61 @@ public sealed class AtaquesTokenFleetTests(FleetConIdentity fleet) : IClassFixtu
         Assert.Equal(HttpStatusCode.OK, (await cliente.ConsultarAsync(RutaProtegida)).Estado);
     }
 
+    // ---- 403: el token sirve, pero no tiene permiso ------------------------------------------
+
+    [Fact]
+    public async Task Un_token_valido_de_otra_organizacion_responde_403()
+    {
+        Assert.Equal(HttpStatusCode.Forbidden, (await ConsultarConAsync(_tokenSupervisor, $"/api/vehiculos/{_vehiculoDeOtra}")).Estado);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ConsultarConAsync(_tokenConductor, $"/api/vehiculos/{_vehiculoDeOtra}")).Estado);
+        Assert.Equal(HttpStatusCode.Forbidden, (await ConsultarConAsync(_tokenSupervisor, $"/api/conductores/{_conductorDeOtra}")).Estado);
+    }
+
+    [Fact]
+    public async Task La_organizacion_sale_del_token_aunque_se_pida_otra_por_parametro()
+    {
+        var lista = await ConsultarConAsync(_tokenSupervisor, $"/api/vehiculos?tenantId={Guid.NewGuid()}");
+
+        var vehiculos = lista.Json.EnumerateArray().Select(v => v.GetProperty("vehiculoId").GetGuid()).ToList();
+        Assert.Contains(_vehiculoPropio, vehiculos);
+        Assert.DoesNotContain(_vehiculoDeOtra, vehiculos);
+    }
+
+    [Fact]
+    public async Task Un_token_valido_con_un_rol_sin_permiso_responde_403()
+    {
+        using var conductor = fleet.ClienteFleet(_tokenConductor);
+        using var supervisor = fleet.ClienteFleet(_tokenSupervisor);
+        using var servicio = fleet.ClienteFleet(_tokenServicio);
+
+        // El conductor no registra flota, una persona no llama rutas internas y un servicio no registra vehículos.
+        var conductorRegistraVehiculo = await conductor.PostearAsync("/api/vehiculos", new { placa = Placa(), capacidadKg = 1000 });
+        var personaReserva = await supervisor.PostearAsync("/api/reservas",
+            new { cargaId = Guid.NewGuid(), vehiculoId = _vehiculoPropio, conductorId = Guid.NewGuid() });
+        var personaArmaFallos = await supervisor.PostearAsync("/api/_simulacion/fallos", new { operacion = "liberaciones", cantidad = 1 });
+        var servicioRegistraVehiculo = await servicio.PostearAsync("/api/vehiculos", new { placa = Placa(), capacidadKg = 1000 });
+
+        Assert.Equal(HttpStatusCode.Forbidden, conductorRegistraVehiculo.Estado);
+        Assert.Equal(HttpStatusCode.Forbidden, personaReserva.Estado);
+        Assert.Equal(HttpStatusCode.Forbidden, personaArmaFallos.Estado);
+        Assert.Equal(HttpStatusCode.Forbidden, servicioRegistraVehiculo.Estado);
+    }
+
+    [Fact]
+    public async Task Cada_quien_lee_lo_que_le_toca()
+    {
+        // El conductor ve el vehículo de su organización y el Saga (token de servicio) ve el de cualquiera.
+        Assert.Equal(HttpStatusCode.OK, (await ConsultarConAsync(_tokenConductor, $"/api/vehiculos/{_vehiculoPropio}")).Estado);
+        Assert.Equal(HttpStatusCode.OK, (await ConsultarConAsync(_tokenServicio, $"/api/vehiculos/{_vehiculoDeOtra}")).Estado);
+    }
+
+    private static string Placa() => "A" + Guid.NewGuid().ToString("N")[..6].ToUpperInvariant();
+
     private async Task<HttpStatusCode> EstadoConAsync(string token) => (await ConsultarConAsync(token)).Estado;
 
-    private async Task<Respuesta> ConsultarConAsync(string token)
+    private async Task<Respuesta> ConsultarConAsync(string token, string ruta = RutaProtegida)
     {
         using var cliente = fleet.ClienteFleet(token);
-        return await cliente.ConsultarAsync(RutaProtegida);
+        return await cliente.ConsultarAsync(ruta);
     }
 }

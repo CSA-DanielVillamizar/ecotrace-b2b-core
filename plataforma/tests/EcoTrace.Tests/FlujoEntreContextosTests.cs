@@ -43,7 +43,7 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
         var generador = await identity.PostearAsync("/api/tenants", new { nombre = "Generadora del Valle S.A.", tenantType = "Generador" });
         var transportista = await identity.PostearAsync("/api/tenants", new { nombre = "Transportes del Cauca", tenantType = "Transportista" });
         var emailSupervisor = $"marta.{Guid.NewGuid():N}@transportescauca.co";
-        var supervisor = await identity.PostearAsync("/api/users", new
+        await identity.PostearAsync("/api/users", new
         {
             tenantId = transportista.Id("tenantId"),
             role = "Supervisor",
@@ -53,7 +53,6 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
         });
         var generadorId = generador.Id("tenantId");
         var transportistaId = transportista.Id("tenantId");
-        var supervisorId = supervisor.Id("userId");
 
         // La supervisora inicia sesión y Fleet descarga la clave pública de Identity con su primera solicitud.
         fleet.ConToken(await identity.TokenDeAsync(emailSupervisor, "Supervisor-2026"));
@@ -63,17 +62,13 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
         // que recibieron, y Fleet valida el token con la clave que ya tiene en memoria, sin volver a Identity.
         await _identity.DisposeAsync();
 
-        // 2. Fleet Management registra vehiculo y conductor del transportista.
-        var vehiculo = await fleet.PostearAsync("/api/vehiculos", new
-        {
-            tenantId = transportistaId, registradoPorUserId = supervisorId, placa = "WXY123", capacidadKg = 5000
-        });
-        var conductor = await fleet.PostearAsync("/api/conductores", new
-        {
-            tenantId = transportistaId, registradoPorUserId = supervisorId, nombre = "Carlos Ruiz", licencia = "C2-88213"
-        });
+        // 2. Fleet Management registra vehiculo y conductor del transportista. La organización y quién
+        //    registra salen del token de la supervisora.
+        var vehiculo = await fleet.PostearAsync("/api/vehiculos", new { placa = "WXY123", capacidadKg = 5000 });
+        var conductor = await fleet.PostearAsync("/api/conductores", new { nombre = "Carlos Ruiz", licencia = "C2-88213" });
         Assert.Equal(HttpStatusCode.Created, vehiculo.Estado);
         Assert.Equal(HttpStatusCode.Created, conductor.Estado);
+        Assert.Equal(transportistaId, vehiculo.Id("tenantId"));
 
         // 3. Cargo & Tracking crea la carga con los dos tenants y la asigna con IDs de Fleet.
         var carga = await cargo.PostearAsync("/api/cargas", new

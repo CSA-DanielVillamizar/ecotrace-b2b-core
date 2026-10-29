@@ -1,5 +1,6 @@
 using EcoTrace.FleetManagement.Api.Contracts;
 using EcoTrace.FleetManagement.Api.Extensions;
+using EcoTrace.FleetManagement.Api.Seguridad;
 using EcoTrace.FleetManagement.Domain;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +12,7 @@ namespace EcoTrace.FleetManagement.Api.Controllers;
 /// defecto) estas rutas responden 404 como si no existieran.
 /// </summary>
 [ApiController]
-[Authorize]
+[Authorize(Policy = Politicas.Servicio)]
 [Route("api/_simulacion")]
 [Produces("application/json")]
 public sealed class SimulacionController(SimulacionFallos simulacion, IConfiguration configuracion) : ControllerBase

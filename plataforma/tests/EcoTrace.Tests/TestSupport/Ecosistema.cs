@@ -194,21 +194,23 @@ public sealed class Ecosistema : IAsyncDisposable
         var sufijo = Guid.NewGuid().ToString("N");
         var generador = await ClienteIdentity.PostearAsync("/api/tenants", new { nombre = $"Generadora {sufijo[..6]}", tenantType = "Generador" });
         var transportista = await ClienteIdentity.PostearAsync("/api/tenants", new { nombre = $"Transportes {sufijo[..6]}", tenantType = "Transportista" });
-        var supervisor = await ClienteIdentity.PostearAsync("/api/users", new
+        var emailSupervisora = $"marta.{sufijo}@ejemplo.co";
+        await ClienteIdentity.PostearAsync("/api/users", new
         {
-            tenantId = transportista.Id("tenantId"), role = "Supervisor", nombre = "Marta Ríos", email = $"marta.{sufijo}@ejemplo.co"
+            tenantId = transportista.Id("tenantId"), role = "Supervisor", nombre = "Marta Ríos", email = emailSupervisora,
+            password = "Supervisora-2026"
         });
         var generadorId = generador.Id("tenantId");
         var transportistaId = transportista.Id("tenantId");
 
-        var vehiculo = await ClienteFleet.PostearAsync("/api/vehiculos", new
+        // La supervisora registra la flota con su propio token: Fleet toma la organización de ahí (Trabajo 3).
+        using var fleetSupervisora = Fleet.CreateClient().ConToken(await ClienteIdentity.TokenDeAsync(emailSupervisora, "Supervisora-2026"));
+        var vehiculo = await fleetSupervisora.PostearAsync("/api/vehiculos", new
         {
-            tenantId = transportistaId, registradoPorUserId = supervisor.Id("userId"),
             placa = $"T{sufijo[..6].ToUpperInvariant()}", capacidadKg = 5000
         });
-        var conductor = await ClienteFleet.PostearAsync("/api/conductores", new
+        var conductor = await fleetSupervisora.PostearAsync("/api/conductores", new
         {
-            tenantId = transportistaId, registradoPorUserId = supervisor.Id("userId"),
             nombre = "Carlos Ruiz", licencia = $"C2-{sufijo[6..12]}"
         });
 

@@ -88,7 +88,10 @@ public static class SeguridadFleet
                 };
             });
 
-        builder.Services.AddAuthorization();
+        // Un token válido sin el rol pedido recibe 403, no 401: quién es está claro, lo que no tiene es permiso.
+        builder.Services.AddAuthorizationBuilder()
+            .AddPolicy(Politicas.GestionaFlota, p => p.RequireRole(Roles.Supervisor, Roles.Administrador))
+            .AddPolicy(Politicas.Servicio, p => p.RequireRole(Roles.Servicio));
         return builder;
     }
 
