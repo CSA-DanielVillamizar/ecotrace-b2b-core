@@ -190,6 +190,64 @@ public sealed class AppConductorFleetTests(FleetConIdentity fleet) : IClassFixtu
         Assert.False(conLaMismaClave.Json.TryGetProperty("novedadId", out _));
     }
 
+    // ---- Conflictos tipificados (ADR 0005) -----------------------------------------------------
+
+    [Fact]
+    public async Task Si_el_vehiculo_se_reservo_para_otra_carga_sin_senal_responde_409_con_conflicto_B()
+    {
+        var conductor = await PrepararConductorAsync();
+        var miCarga = Guid.NewGuid();
+        await ReservarAsync(miCarga, conductor.VehiculoId, conductor.ConductorId);
+
+        // La app guarda la carga en caché y el conductor pierde la señal. Mientras tanto la carga termina
+        // y el vehículo se reserva para otra carga, con otro conductor.
+        var miCargaEnCache = (await fleet.ClienteFleet(conductor.Token).ConsultarAsync("/api/conductores/yo")).Id("cargaId");
+        await ReasignarVehiculoAsync(conductor, miCarga, Guid.NewGuid());
+
+        // Vuelve la señal y la app sincroniza la novedad que guardó sin conexión.
+        using var app = fleet.ClienteFleet(conductor.Token);
+        var novedad = await ReportarAsync(app, conductor.VehiculoId,
+            new { tipo = "Mecanica", descripcion = "Falla en los frenos", ocurridaEn = DateTimeOffset.UtcNow.AddMinutes(-30), cargaId = miCargaEnCache });
+
+        Assert.Equal(HttpStatusCode.Conflict, novedad.Estado);
+        Assert.Equal("B", novedad.Texto("tipoConflicto"));
+        Assert.Contains("otra carga", novedad.Texto("detail"));
+        Assert.Equal(0, (await app.ConsultarAsync($"/api/vehiculos/{conductor.VehiculoId}/novedades")).Cantidad);
+    }
+
+    [Fact]
+    public async Task El_reintento_de_una_novedad_ya_aceptada_responde_200_aunque_el_vehiculo_cambie_despues()
+    {
+        var conductor = await PrepararConductorAsync();
+        var miCarga = Guid.NewGuid();
+        await ReservarAsync(miCarga, conductor.VehiculoId, conductor.ConductorId);
+        using var app = fleet.ClienteFleet(conductor.Token);
+        var operationId = Guid.NewGuid();
+        var cuerpo = new { tipo = "Llanta", descripcion = "Llanta pinchada", ocurridaEn = DateTimeOffset.UtcNow, cargaId = miCarga };
+
+        var primera = await ReportarAsync(app, conductor.VehiculoId, cuerpo, operationId);
+        await ReasignarVehiculoAsync(conductor, miCarga, Guid.NewGuid());
+        var reintento = await ReportarAsync(app, conductor.VehiculoId, cuerpo, operationId);
+
+        // Fleet ya había aceptado esta acción: el reintento recibe lo mismo, no un conflicto nuevo.
+        Assert.Equal(HttpStatusCode.Created, primera.Estado);
+        Assert.Equal(HttpStatusCode.OK, reintento.Estado);
+        Assert.Equal(primera.Id("novedadId"), reintento.Id("novedadId"));
+    }
+
+    [Fact]
+    public async Task Un_dato_invalido_responde_400_con_conflicto_A()
+    {
+        var conductor = await PrepararConductorAsync();
+        using var app = fleet.ClienteFleet(conductor.Token);
+
+        var novedad = await ReportarAsync(app, conductor.VehiculoId,
+            new { tipo = "Otra", descripcion = "Mal", ocurridaEn = DateTimeOffset.UtcNow });
+
+        Assert.Equal(HttpStatusCode.BadRequest, novedad.Estado);
+        Assert.Equal("A", novedad.Texto("tipoConflicto"));
+    }
+
     /// <summary>Envía la novedad como el motor de la app: con el OperationId en el encabezado Idempotency-Key.</summary>
     private static async Task<Respuesta> ReportarAsync(HttpClient app, Guid vehiculoId, object cuerpo, Guid? operationId = null)
     {
@@ -220,6 +278,23 @@ public sealed class AppConductorFleetTests(FleetConIdentity fleet) : IClassFixtu
             new { placa = $"C{sufijo[..6].ToUpperInvariant()}", capacidadKg = 5000 })).Id("vehiculoId");
 
         return new Conductor(await admin.TokenDeAsync(email, "Conductor-2026"), tenantId, conductorId, vehiculoId);
+    }
+
+    /// <summary>
+    /// La carga termina (el Saga libera los recursos) y el mismo vehículo se reserva para otra carga con otro
+    /// conductor del mismo transportista.
+    /// </summary>
+    private async Task ReasignarVehiculoAsync(Conductor conductor, Guid cargaAnterior, Guid cargaNueva)
+    {
+        using var servicio = fleet.ClienteFleet(FleetConIdentity.TokenDeServicio());
+        var liberacion = await servicio.PostearAsync("/api/liberaciones",
+            new { cargaId = cargaAnterior, vehiculoId = conductor.VehiculoId, conductorId = conductor.ConductorId });
+        Assert.Equal(HttpStatusCode.OK, liberacion.Estado);
+
+        using var supervisora = fleet.ClienteFleet(FleetConIdentity.Token(conductor.TenantId));
+        var otroConductor = (await supervisora.PostearAsync("/api/conductores",
+            new { nombre = "Ana Gómez", licencia = $"C3-{Guid.NewGuid().ToString("N")[..6]}" })).Id("conductorId");
+        await ReservarAsync(cargaNueva, conductor.VehiculoId, otroConductor);
     }
 
     /// <summary>Lo que hace el Saga de Billing: reservar vehículo y conductor juntos para una carga.</summary>

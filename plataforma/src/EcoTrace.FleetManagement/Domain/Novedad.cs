@@ -84,6 +84,15 @@ public sealed class Novedad
             throw DomainException.Validation("La fecha de la novedad no puede estar en el futuro.");
         }
 
+        // Conflicto B del ADR 0005: mientras el conductor no tenía señal, el vehículo se reservó para otra carga.
+        // El servidor manda: la novedad era de un viaje que ya no es de este conductor y no se registra.
+        // Si el vehículo quedó disponible (la carga terminó), la novedad sí se acepta: sigue siendo del vehículo.
+        if (cargaId is not null && vehiculo.Estado == EstadoRecurso.Reservado && vehiculo.ReservadoParaCargaId != cargaId)
+        {
+            throw DomainException.Conflict(
+                "El vehículo fue reservado para otra carga mientras no tenías señal. La novedad no se registró.");
+        }
+
         return new Novedad
         {
             NovedadId = Guid.NewGuid(),
