@@ -9,7 +9,7 @@ Es una solución posible, no la única. Se evalúa que la parte de cada escuadr�
 ```bash
 cd referencia/trabajo-03
 dotnet build EcoTrace.sln -c Release      # sin advertencias
-dotnet test  EcoTrace.sln -c Release      # 141 pruebas de Mobile.Core + 206 del servidor
+dotnet test  EcoTrace.sln -c Release      # 141 pruebas de Mobile.Core + 208 del servidor
 pwsh scripts/verificar-release.ps1 -LevantarProduccion   # capas 1 y 2 de la verificación de release
 ```
 

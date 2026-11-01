@@ -260,6 +260,7 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("Version")
+                        .IsConcurrencyToken()
                         .HasColumnType("INTEGER");
 
                     b.HasKey("TenantId");

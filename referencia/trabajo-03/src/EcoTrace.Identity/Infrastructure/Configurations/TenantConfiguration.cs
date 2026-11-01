@@ -15,7 +15,9 @@ internal sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(t => t.TenantType).HasConversion<string>().HasMaxLength(20).IsRequired();
         builder.Property(t => t.CreadoEn).IsRequired();
         builder.Property(t => t.Estado).HasConversion<string>().HasMaxLength(20).IsRequired();
-        builder.Property(t => t.Version).IsRequired();
+        // Token de concurrencia: un cambio hecho sobre una copia vieja no se guarda (409 de tipo C). Sin esto, una suspensión
+        // atrasada podría pisar una reactivación posterior y bajar la versión que los consumidores usan para ignorar lo atrasado.
+        builder.Property(t => t.Version).IsRequired().IsConcurrencyToken();
     }
 }
 

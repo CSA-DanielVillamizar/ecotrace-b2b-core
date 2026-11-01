@@ -34,7 +34,7 @@ Después se abre <http://localhost:5100>, se inicia sesión con el administrador
 
 ```bash
 dotnet build EcoTrace.sln -c Release      # sin advertencias
-dotnet test  EcoTrace.sln -c Release      # 141 pruebas de Mobile.Core y 206 del servidor
+dotnet test  EcoTrace.sln -c Release      # 141 pruebas de Mobile.Core y 208 del servidor
 pwsh scripts/verificar-release.ps1 -LevantarProduccion   # capas 1 y 2 de la verificación de release
 ```
 
