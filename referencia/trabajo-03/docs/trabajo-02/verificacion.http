@@ -1,0 +1,120 @@
+# Verificación de los contratos del Trabajo 2.
+# Sirve con Visual Studio 2022, VS Code (extensión REST Client) y Rider.
+#
+# Sirve para revisar tu servicio y el de otro escuadrón. Los identificadores se copian a mano de una
+# respuesta a la siguiente, como en docs/requests.http. Los pasos 6 y 6b solo funcionan si Fleet
+# arranca con la variable de entorno Simulacion__Habilitada=true; sin ella esas rutas responden 404.
+
+@identity = http://localhost:5101
+@fleet = http://localhost:5102
+@cargo = http://localhost:5103
+@billing = http://localhost:5104
+
+@generadorId = pegue-aqui-el-tenantId-del-generador
+@transportistaId = pegue-aqui-el-tenantId-del-transportista
+@usuarioId = pegue-aqui-el-userId
+@vehiculoId = pegue-aqui-el-vehiculoId
+@conductorId = pegue-aqui-el-conductorId
+@cargaId = pegue-aqui-el-cargaId
+@pagoId = pegue-aqui-el-pagoId
+@sagaId = pegue-aqui-el-sagaId
+@eventoId = pegue-aqui-el-eventoId-del-outbox
+
+
+### 0. Preparación: crear las organizaciones, la flota, la carga y el pago (ver docs/requests.http)
+# Al terminar la carga debe estar EnTransito, con vehículo y conductor asignados.
+
+
+### 1. Fleet: reservar vehículo y conductor para la carga (201 la primera vez, 200 si se repite)
+POST {{fleet}}/api/reservas
+Content-Type: application/json
+
+{ "cargaId": "{{cargaId}}", "vehiculoId": "{{vehiculoId}}", "conductorId": "{{conductorId}}" }
+
+### 1b. Fleet: el vehículo debe estar Reservado
+GET {{fleet}}/api/vehiculos/{{vehiculoId}}
+
+
+### 2. Identity: estado actual de la organización (ValidateTenantStatus)
+GET {{identity}}/api/tenants/{{transportistaId}}/estado
+
+### 2b. Identity: suspender (repetirlo responde 200 sin subir la versión)
+POST {{identity}}/api/tenants/{{transportistaId}}/suspension
+
+### 2c. Identity: reactivar
+POST {{identity}}/api/tenants/{{transportistaId}}/reactivacion
+
+
+### 3. Identity: autorizar el pago (201 nueva, 200 repetida, 409 si está suspendido o revocada)
+POST {{identity}}/api/autorizaciones-pago
+Content-Type: application/json
+
+{ "pagoId": "{{pagoId}}", "tenantId": "{{transportistaId}}" }
+
+### 3b. Identity: consultar la autorización
+GET {{identity}}/api/autorizaciones-pago/{{pagoId}}
+
+### 3c. Identity: revocar (idempotente). Después, autorizar el mismo pago da 409.
+POST {{identity}}/api/autorizaciones-pago/{{pagoId}}/revocacion
+
+
+### 4. Cargo: registrar la entrega. Guarda el evento en el Outbox en la misma transacción.
+POST {{cargo}}/api/cargas/{{cargaId}}/seguimientos
+Content-Type: application/json
+
+{ "estado": "Entregado", "ubicacion": "Popayán" }
+
+### 4b. Cargo: ver el Outbox. El mensaje pasa de Pendiente a Publicado cuando Billing lo recibe.
+GET {{cargo}}/api/outbox
+
+### 4c. Cargo: los mensajes muertos, si los hay
+GET {{cargo}}/api/outbox?estado=Muerto
+
+### 4d. Cargo: reprocesar un mensaje muerto
+POST {{cargo}}/api/outbox/{{eventoId}}/reprocesar
+
+
+### 5. Billing: el Saga del pago, con sus pasos
+GET {{billing}}/api/sagas?pagoId={{pagoId}}
+
+### 5b. Billing: un Saga por identificador
+GET {{billing}}/api/sagas/{{sagaId}}
+
+### 5c. Billing: el pago y su auditoría
+GET {{billing}}/api/pagos/{{pagoId}}
+
+
+### 6. Fleet: hacer fallar las próximas 100 liberaciones para provocar la compensación
+POST {{fleet}}/api/_simulacion/fallos
+Content-Type: application/json
+
+{ "operacion": "liberaciones", "cantidad": 100 }
+
+### 6b. Fleet: restablecer
+POST {{fleet}}/api/_simulacion/fallos
+Content-Type: application/json
+
+{ "operacion": "liberaciones", "cantidad": 0 }
+
+
+### 7. Billing: enviar el evento a mano (202 la primera vez, 200 "duplicado" si se repite)
+POST {{billing}}/api/eventos/entrega-confirmada
+Content-Type: application/json
+
+{
+  "eventId": "11111111-1111-1111-1111-111111111111",
+  "eventType": "EntregaConfirmada",
+  "cargaId": "{{cargaId}}",
+  "vehiculoId": "{{vehiculoId}}",
+  "conductorId": "{{conductorId}}",
+  "generadorTenantId": "{{generadorId}}",
+  "transportistaTenantId": "{{transportistaId}}",
+  "correlationId": "prueba-manual"
+}
+
+
+### 8. Fleet: liberar a mano (200 siempre; cambioEstado indica si algo cambió)
+POST {{fleet}}/api/liberaciones
+Content-Type: application/json
+
+{ "cargaId": "{{cargaId}}", "vehiculoId": "{{vehiculoId}}", "conductorId": "{{conductorId}}" }
