@@ -1,0 +1,66 @@
+/*
+ * Tokens de diseño de EcoTrace. Todo color, tamaño y espacio de la consola sale de aquí.
+ * Los valores y sus razones están en docs/brand/README.md.
+ */
+:root {
+  /* Marca */
+  --brand-deep: #0A2C2C;
+  --brand: #0F3D3E;
+  --brand-soft: #1B5557;
+  --petrol: #1C7293;
+  --petrol-strong: #0F5A73;
+  --amber: #F2A93B;
+
+  /* Neutros */
+  --ink: #16211E;
+  --muted: #566764;
+  --placeholder: #62726F;
+  --page: #F1F4F3;
+  --surface: #FFFFFF;
+  --line: #D8E0DE;
+  --line-strong: #7C8D8A;
+
+  /* Estados: cada uno con fondo suave y texto oscuro (contraste AA) y un tono sólido para gráficos */
+  --ok-bg: #E7F3EB;
+  --ok-fg: #1E6B3F;
+  --ok-solid: #2C8C5A;
+  --bad-bg: #FBEAE8;
+  --bad-fg: #A83226;
+  --bad-solid: #C0392B;
+  --warn-bg: #FFF3DC;
+  --warn-fg: #7A4B00;
+  --warn-solid: #F2A93B;
+  --info-bg: #E3F1F6;
+  --info-fg: #0F5A73;
+  --info-solid: #1C7293;
+  --neutral-bg: #ECEFEE;
+  --neutral-fg: #3F4F4C;
+  --neutral-solid: #9AA9A6;
+
+  /* Tipografía */
+  --font-display: Cambria, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --font-body: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  /* Espacio (escala de 4 px) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+
+  /* Forma y elevación */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-pill: 999px;
+  --shadow-1: 0 1px 2px rgba(10, 44, 44, 0.06), 0 1px 1px rgba(10, 44, 44, 0.04);
+  --shadow-2: 0 8px 24px rgba(10, 44, 44, 0.14);
+
+  /* Movimiento */
+  --t-fast: 120ms;
+  --t-base: 180ms;
+
+  --sidebar-w: 248px;
+}

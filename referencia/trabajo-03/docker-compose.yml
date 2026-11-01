@@ -1,0 +1,100 @@
+# Levanta los cuatro servicios y la consola. Cada servicio tiene su propio volumen: es la misma
+# separacion de bases de datos que en local, ahora a nivel de contenedor.
+#
+#   docker compose up --build        (consola en http://localhost:5100)
+#   docker compose down -v           (detiene y borra los datos)
+#
+# La consola es una pagina web: el navegador llama a las APIs por los puertos publicados,
+# por eso las URLs que recibe la consola apuntan a localhost y no a los nombres de servicio.
+
+name: ecotrace
+
+# Seguridad (Trabajo 3, ADR 0004). Los servicios arrancan en Development: Identity genera su clave de firma RS256 la primera
+# vez (queda en su volumen) y siembra al administrador de plataforma y los clientes de servicio con los valores de
+# appsettings.Development.json, que son SOLO de desarrollo. Fuera de desarrollo hay que dar la clave privada y los secretos por
+# variables de entorno (Jwt__PrivateKeyPem, Plataforma__AdminPassword, Servicios__Clientes__0__ClientSecret, Servicio__ClientSecret)
+# y un emisor propio del entorno (Jwt__Issuer): nada de eso va en el repositorio.
+x-servicio: &servicio
+  restart: unless-stopped
+  environment: &entorno
+    ASPNETCORE_ENVIRONMENT: Development
+
+services:
+  identity:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.Identity/Api/EcoTrace.Identity.Api.csproj
+        DLL: EcoTrace.Identity.Api.dll
+    ports: ["5101:8080"]
+    volumes: ["identity-data:/app/App_Data"]
+    environment:
+      <<: *entorno
+
+  fleet:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.FleetManagement/Api/EcoTrace.FleetManagement.Api.csproj
+        DLL: EcoTrace.FleetManagement.Api.dll
+    ports: ["5102:8080"]
+    volumes: ["fleet-data:/app/App_Data"]
+    environment:
+      <<: *entorno
+      # Acepta fallos simulados, para demostrar la compensacion del Saga.
+      Simulacion__Habilitada: "true"
+      # De aqui baja el JWKS con el que valida los tokens.
+      Servicios__Identity__BaseUrl: http://identity:8080
+
+  cargo:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.CargoTracking/Api/EcoTrace.CargoTracking.Api.csproj
+        DLL: EcoTrace.CargoTracking.Api.dll
+    ports: ["5103:8080"]
+    volumes: ["cargo-data:/app/App_Data"]
+    environment:
+      <<: *entorno
+      # Destino del Outbox: Cargo publica EntregaConfirmada a Billing por el nombre del servicio.
+      Servicios__Billing__BaseUrl: http://billing:8080
+      # De aqui baja el JWKS y pide su token de servicio.
+      Servicios__Identity__BaseUrl: http://identity:8080
+
+  billing:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.Billing/Api/EcoTrace.Billing.Api.csproj
+        DLL: EcoTrace.Billing.Api.dll
+    ports: ["5104:8080"]
+    volumes: ["billing-data:/app/App_Data"]
+    environment:
+      <<: *entorno
+      # Servicios que el Saga llama. Se resuelven por nombre dentro de la red de compose.
+      Servicios__Identity__BaseUrl: http://identity:8080
+      Servicios__Fleet__BaseUrl: http://fleet:8080
+
+  console:
+    <<: *servicio
+    build:
+      context: .
+      args:
+        PROYECTO: src/EcoTrace.Console/EcoTrace.Console.csproj
+        DLL: EcoTrace.Console.dll
+    ports: ["5100:8080"]
+    environment:
+      Servicios__Identity: http://localhost:5101
+      Servicios__FleetManagement: http://localhost:5102
+      Servicios__CargoTracking: http://localhost:5103
+      Servicios__Billing: http://localhost:5104
+
+volumes:
+  identity-data:
+  fleet-data:
+  cargo-data:
+  billing-data:
