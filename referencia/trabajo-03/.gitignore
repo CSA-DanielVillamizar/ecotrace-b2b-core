@@ -1,0 +1,13 @@
+bin/
+obj/
+App_Data/
+*.db
+*.db-shm
+*.db-wal
+.vs/
+*.user
+TestResults/
+
+# Claves de firma de Android: nunca al repositorio
+*.keystore
+*.jks

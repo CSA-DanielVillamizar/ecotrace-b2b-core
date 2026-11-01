@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!-- Anfitrion de la consola web: sirve archivos estaticos. No referencia ningun modulo. -->
+
+</Project>

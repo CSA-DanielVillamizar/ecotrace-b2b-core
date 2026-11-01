@@ -1,0 +1,7 @@
+# Los scripts de shell y el Dockerfile deben conservar saltos de linea LF aunque quien clone
+# tenga core.autocrlf activado (Windows): con CRLF, bash falla al leerlos.
+* text=auto
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.png binary
