@@ -10,12 +10,20 @@ public sealed record EstadoDeSesion(
     DateTime? UltimoLoginUtc,
     DateTime? UltimoContactoUtc,
     bool AccesoVigente,
-    string? MotivoDeCierre);
+    string? MotivoDeCierre,
+    ModoDeSesion Modo = ModoDeSesion.SinSesion,
+    bool Desbloqueada = false,
+    DateTime? DegradadaHastaUtc = null);
 
 /// <summary>
 /// La sesión del conductor (ADR 0004 y 0005). Es el <see cref="IProveedorDeSesion"/> que usa el motor de
 /// sincronización de los cuatro módulos: les da el access token vigente, lo renueva con el refresh token cuando
 /// vence y <b>nunca</b> devuelve uno vencido. Los tokens viven solo en el almacén seguro.
+/// <para>
+/// También decide si se puede encolar (ver <see cref="PoliticaDeSesion"/>). Con el token vencido y sin poder renovarlo, la
+/// sesión queda <see cref="ModoDeSesion.Degradada"/> hasta 48 horas desde el último contacto con Identity: se sigue
+/// trabajando tras desbloquear con huella o PIN, y lo encolado sale después con el token nuevo.
+/// </para>
 /// </summary>
 public sealed class GestorDeSesion : IProveedorDeSesion
 {
@@ -26,20 +34,27 @@ public sealed class GestorDeSesion : IProveedorDeSesion
     private readonly ClienteIdentity _cliente;
     private readonly IConectividad _conectividad;
     private readonly IColaLocal _cola;
+    private readonly IAutenticadorLocal _autenticador;
     private readonly TimeProvider _reloj;
     private readonly SemaphoreSlim _candado = new(1, 1);
 
+    // El desbloqueo vale para un último contacto concreto: si la sesión se renueva y luego vuelve a quedar degradada,
+    // se pide otra vez. Vive solo en memoria: al reabrir la app hay que desbloquear de nuevo.
+    private (string Email, DateTime UltimoContactoUtc)? _desbloqueo;
+
     public GestorDeSesion(
-        IAlmacenSeguro almacen, ClienteIdentity cliente, IConectividad conectividad, IColaLocal cola, TimeProvider? reloj = null)
+        IAlmacenSeguro almacen, ClienteIdentity cliente, IConectividad conectividad, IColaLocal cola,
+        IAutenticadorLocal autenticador, TimeProvider? reloj = null)
     {
         _almacen = almacen;
         _cliente = cliente;
         _conectividad = conectividad;
         _cola = cola;
+        _autenticador = autenticador;
         _reloj = reloj ?? TimeProvider.System;
     }
 
-    /// <summary>Cambió la sesión: se inició, se renovó o se cerró.</summary>
+    /// <summary>Cambió la sesión: se inició, se renovó, se desbloqueó o se cerró.</summary>
     public event EventHandler? Cambio;
 
     /// <summary>Por qué se cerró la sesión sin que el conductor lo pidiera (venció, organización suspendida...).</summary>
@@ -48,11 +63,93 @@ public sealed class GestorDeSesion : IProveedorDeSesion
     public async Task<EstadoDeSesion> EstadoAsync()
     {
         var sesion = await _almacen.LeerAsync<DatosDeSesion>(ClavesDelAlmacen.Sesion);
-        return sesion is null
-            ? new EstadoDeSesion(false, null, null, null, false, MotivoDeCierre)
-            : new EstadoDeSesion(true, sesion.Email, sesion.UltimoLoginUtc, sesion.UltimoContactoUtc,
-                EsVigente(sesion, Ahora), MotivoDeCierre);
+        if (sesion is null)
+        {
+            return new EstadoDeSesion(false, null, null, null, false, MotivoDeCierre);
+        }
+
+        var modo = PoliticaDeSesion.Evaluar(sesion, Ahora);
+        return new EstadoDeSesion(true, sesion.Email, sesion.UltimoLoginUtc, sesion.UltimoContactoUtc,
+            EsVigente(sesion, Ahora), MotivoDeCierre, modo, EstaDesbloqueada(sesion),
+            sesion.UltimoContactoUtc + PoliticaDeSesion.LimiteDegradada);
     }
+
+    /// <summary>
+    /// El modo de la sesión. Con <paramref name="intentarRenovar"/> y señal, primero intenta renovar un token vencido: así
+    /// "degradada" significa que de verdad no se pudo (sin señal, o Identity no respondió). El intento dura como mucho
+    /// <see cref="EsperaMaximaDeRenovacion"/> y, si falla, no se repite durante <see cref="PausaTrasFalloDeRenovacion"/>:
+    /// encolar nunca puede quedarse esperando a la red.
+    /// </summary>
+    public async Task<ModoDeSesion> ModoAsync(bool intentarRenovar = false, CancellationToken ct = default)
+    {
+        var sesion = await _almacen.LeerAsync<DatosDeSesion>(ClavesDelAlmacen.Sesion);
+        if (intentarRenovar && sesion is not null && !EsVigente(sesion, Ahora) && _conectividad.HayConexion
+            && (_ultimoFalloDeRenovacion is not { } fallo || Ahora - fallo > PausaTrasFalloDeRenovacion))
+        {
+            using var limite = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            limite.CancelAfter(EsperaMaximaDeRenovacion);
+            try
+            {
+                await ObtenerTokenVigenteAsync(limite.Token);
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                // Identity tardó demasiado: se decide con lo que hay y el motor reintenta la renovación después.
+            }
+
+            sesion = await _almacen.LeerAsync<DatosDeSesion>(ClavesDelAlmacen.Sesion);
+            _ultimoFalloDeRenovacion = sesion is not null && !EsVigente(sesion, Ahora) ? Ahora : null;
+        }
+
+        return PoliticaDeSesion.Evaluar(sesion, Ahora);
+    }
+
+    /// <summary>Cuánto se espera a Identity al encolar con el token vencido antes de tratar la sesión como degradada.</summary>
+    public static readonly TimeSpan EsperaMaximaDeRenovacion = TimeSpan.FromSeconds(2);
+
+    /// <summary>Tras una renovación fallida al encolar, cuánto se espera antes de volver a intentarla desde aquí.</summary>
+    public static readonly TimeSpan PausaTrasFalloDeRenovacion = TimeSpan.FromSeconds(30);
+
+    private DateTime? _ultimoFalloDeRenovacion;
+
+    /// <summary>Lanza <see cref="AccionNoPermitidaException"/> si la sesión no permite encolar esa acción ahora.</summary>
+    public async Task ExigirPermisoParaEncolarAsync(string modulo, string tipo, CancellationToken ct = default)
+    {
+        var modo = await ModoAsync(intentarRenovar: true, ct);
+        var sesion = await _almacen.LeerAsync<DatosDeSesion>(ClavesDelAlmacen.Sesion);
+        var impedimento = PoliticaDeSesion.Impedimento(modo, sesion is not null && EstaDesbloqueada(sesion), PoliticaDeSesion.EsCritica(modulo, tipo));
+        if (impedimento is not null)
+        {
+            throw new AccionNoPermitidaException(impedimento);
+        }
+    }
+
+    /// <summary>Con la sesión degradada, abre el cuadro del sistema (huella o PIN) y, si pasa, deja seguir sin conexión.</summary>
+    public async Task<ResultadoDesbloqueo> DesbloquearAsync(CancellationToken ct = default)
+    {
+        var sesion = await _almacen.LeerAsync<DatosDeSesion>(ClavesDelAlmacen.Sesion);
+        if (sesion is null || PoliticaDeSesion.Evaluar(sesion, Ahora) != ModoDeSesion.Degradada)
+        {
+            return ResultadoDesbloqueo.NoAplica;
+        }
+
+        if (EstaDesbloqueada(sesion))
+        {
+            return ResultadoDesbloqueo.Desbloqueada;
+        }
+
+        var resultado = await _autenticador.VerificarAsync("Confirma que eres tú para seguir sin conexión", ct);
+        if (resultado == ResultadoDesbloqueo.Desbloqueada)
+        {
+            _desbloqueo = (sesion.Email, sesion.UltimoContactoUtc);
+            Cambio?.Invoke(this, EventArgs.Empty);
+        }
+
+        return resultado;
+    }
+
+    private bool EstaDesbloqueada(DatosDeSesion sesion) =>
+        _desbloqueo is { } d && d.Email == sesion.Email && d.UltimoContactoUtc == sesion.UltimoContactoUtc;
 
     /// <summary>
     /// Inicia sesión. Necesita señal: el login nunca se encola ni se guarda la contraseña.

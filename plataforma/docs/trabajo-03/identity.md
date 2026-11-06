@@ -199,7 +199,7 @@ Está en `src/EcoTrace.App/Modulos/Identity/`. La lógica que no depende de MAUI
 | `ServicioDePerfil` | Encola el cambio de perfil y el cierre de otras sesiones, y arma lo que muestra la pantalla: el perfil en caché, con el cambio pendiente encima (la pantalla se actualiza de inmediato) y el último rechazo con su motivo. Un rechazo `A` se corrige con `ReintentarCorregidaAsync`, que crea una acción nueva y deja la rechazada para auditoría. |
 | `PerfilViewModel` / `IdentityPage` | La pantalla: el login sin sesión; con sesión, el perfil (también en modo avión), el formulario de datos, el aviso del cambio pendiente o del rechazo, y los botones de actualizar, cerrar otras sesiones y cerrar sesión. |
 
-**Los otros módulos no tienen que hacer nada para usar la sesión:** el motor del `Mobile.Core` ya le pide el token al `GestorDeSesion` antes de enviar su cola. Lo que sí deben hacer es no guardar tokens por su cuenta.
+**Los otros módulos no tienen que hacer nada para usar la sesión:** el motor del `Mobile.Core` ya le pide el token al `GestorDeSesion` antes de enviar su cola. Lo que sí deben hacer es no guardar tokens por su cuenta, y **atrapar `InvalidOperationException` al encolar** (ver "Sesión degradada").
 
 Al cerrar sesión, las acciones en cola de cualquier módulo **no se borran** (nunca se pierde una acción): esperan a que **esa misma cuenta** vuelva a iniciar sesión, y la app avisa cuántas hay antes de cerrar.
 
@@ -207,10 +207,40 @@ Al cerrar sesión, las acciones en cola de cualquier módulo **no se borran** (n
 
 Si la cuenta dueña ya no puede entrar (su organización quedó suspendida, el conductor se retiró), la otra cuenta puede **entrar confirmándolo en pantalla**. Solo después de que Identity valide sus credenciales, las acciones sin enviar de la cuenta anterior pasan a `Rechazado` (B) con un motivo que lo explica. No se borran ni se envían con otro token: quedan en la cola para auditoría.
 
+### Sesión degradada (sin conexión y con el token vencido)
+
+La regla del ADR 0005: si el token venció y no se puede renovar, la app deja seguir con una sesión local protegida por huella o PIN, con dos límites: **máximo 48 horas** desde el último contacto real con Identity, y **sin acciones que muevan dinero ni cierren un ciclo crítico**. Lo encolado así sale, al sincronizar, con el **token nuevo**, nunca con el vencido.
+
+| Modo (`ModoDeSesion`) | Cuándo | ¿Se puede encolar? |
+|---|---|---|
+| `Activa` | Hay un access token vigente (aunque no haya señal). | Sí, todo. |
+| `Degradada` | El token venció y no se pudo renovar (sin señal o Identity no respondió), dentro de las 48 h desde el último login o renovación. | Solo tras desbloquear con huella o PIN, y nunca una acción crítica. |
+| `Expirada` | Igual, pero pasaron más de 48 h. | No: hay que conectarse y renovar o iniciar sesión. |
+| `SinSesion` | Nadie ha iniciado sesión. | No. |
+
+- **Dónde se aplica.** `RegistroIdentity` registra `ColaConSesion` como el `IColaLocal` de la app: envuelve la cola del esqueleto y, antes de `EncolarAsync` o `ReintentarCorregidaAsync`, le pregunta a `GestorDeSesion`. Así vale para **los cuatro módulos** sin tocar el `Mobile.Core`, que es compartido. Si con señal el token está vencido, primero intenta renovarlo: "degradada" quiere decir que de verdad no se pudo.
+- **Qué deben hacer los demás módulos.** Si la sesión no lo permite, `EncolarAsync` lanza `AccionNoPermitidaException` antes de guardar nada. Hereda de `InvalidOperationException` y su mensaje ya está escrito para el conductor, así que basta con:
+  ```csharp
+  try { await _cola.EncolarAsync("Cargo", "ConfirmarEntrega", json); }
+  catch (InvalidOperationException ex) { Mensaje = ex.Message; }
+  ```
+- **Acciones críticas** (`PoliticaDeSesion.AccionesCriticas`): por ahora `("Cargo", "ConfirmarEntrega")`, porque confirmar la entrega dispara el Saga que libera el pago. Si un módulo tiene otra, se agrega ahí. Con el token **vigente** sí se encolan aunque no haya señal (el camino feliz de la demo).
+- **El desbloqueo** es el cuadro del sistema (`BiometricPrompt`, en `AutenticadorLocalAndroid`): huella o, si no hay, el PIN, patrón o contraseña del teléfono (Android 10 o superior). Vale solo para esa sesión degradada: vive en memoria, se pide otra vez al reabrir la app y al volver a degradarse tras una renovación. Sin bloqueo de pantalla en el teléfono no se puede desbloquear, y la app lo dice. El permiso `USE_BIOMETRIC` se declara con un atributo en nuestra carpeta; el build lo agrega al manifiesto.
+- **Sin sesión ya no se encola nada**: antes el esqueleto lo permitía, pero esa acción no tendría dueño, y en un teléfono compartido podría salir con el token de otra persona.
+
+**Probado en el emulador** (Android 14, build de Debug, con PIN `1234` puesto con `adb shell locksettings set-pin 1234`): login, reloj del teléfono adelantado 20 minutos y modo avión, la pantalla pasa a "Sin conexión · bloqueada", "Desbloquear con huella o PIN" abre el cuadro del sistema, con el PIN queda "limitada hasta" 48 h después del último contacto, el cambio de teléfono se encola, y al volver la señal se renueva el token y el cambio llega a Identity ("Cambio enviado"). Para repetirlo:
+
+```powershell
+adb root; adb shell settings put global auto_time 0
+adb shell "date -u <MMddHHmmyyyy.ss de dentro de 20 minutos>"
+adb shell cmd connectivity airplane-mode enable
+# ... desbloquear, cambiar el teléfono, guardar ...
+adb shell settings put global auto_time 1; adb shell cmd connectivity airplane-mode disable
+```
+
 ### Qué no está todavía
 
-- **Sesión offline degradada con biometría o PIN** (máximo 48 horas desde el último contacto con Identity, sin acciones de dinero). `DatosDeSesion.UltimoContactoUtc` ya guarda ese último contacto real.
-- **Validar en el emulador.** En esta máquina no hay emulador y el workload de MAUI para .NET 8 no está instalado. La app se compiló con el SDK 10 cambiando el destino a `net10.0-android` en una copia aparte, solo para comprobar que el XAML y el C# compilan. El destino real sigue siendo `net8.0-android`: hace falta el SDK 8 con `dotnet workload install maui-android`.
+- **La huella real**: el emulador no tiene sensor; se probó con el PIN del dispositivo, que la especificación acepta.
 
 ## Lo que cambia para lo que ya existía
 

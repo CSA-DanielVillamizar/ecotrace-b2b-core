@@ -25,6 +25,8 @@ public sealed class IdentityModuloTests : IDisposable
     private readonly ConectividadFalsa _conectividad = new();
     private readonly RelojDePrueba _reloj = new(new DateTimeOffset(2026, 10, 27, 15, 0, 0, TimeSpan.Zero));
     private readonly ColaLocalSqlite _cola;
+    private readonly ColaConSesion _colaConSesion;
+    private readonly AutenticadorFalso _autenticador = new();
     private readonly GestorDeSesion _sesion;
     private readonly ServicioDePerfil _perfil;
     private int _emitidos;
@@ -34,8 +36,9 @@ public sealed class IdentityModuloTests : IDisposable
         _http = new HttpClient(_identity);
         _cola = _base.Abrir(_reloj);
         var cliente = new ClienteIdentity(_http, DireccionIdentity);
-        _sesion = new GestorDeSesion(_almacen, cliente, _conectividad, _cola, _reloj);
-        _perfil = new ServicioDePerfil(_sesion, cliente, _cola, _almacen, _reloj);
+        _sesion = new GestorDeSesion(_almacen, cliente, _conectividad, _cola, _autenticador, _reloj);
+        _colaConSesion = new ColaConSesion(_cola, _sesion);
+        _perfil = new ServicioDePerfil(_sesion, cliente, _colaConSesion, _almacen, _reloj);
         _identity.Responder = (s, _) => Task.FromResult(IdentityQueFunciona(s));
     }
 
@@ -328,7 +331,8 @@ public sealed class IdentityModuloTests : IDisposable
     [Fact]
     public async Task Sin_sesion_el_motor_no_envia_nada_y_la_accion_espera()
     {
-        await _perfil.CambiarPerfilAsync("Carlos Ruiz", null);
+        // Una acción que quedó en la cola de antes (por ejemplo, la sesión se cerró después de encolarla).
+        await _cola.EncolarAsync("Identity", "ActualizarPerfil", """{"nombre":"Carlos Ruiz","telefono":null}""");
         var motor = new MotorSincronizacion(_cola, new RegistroDeModulos([new ModuloIdentityDePrueba()]), _sesion, _conectividad, _http, _reloj);
 
         var resultado = await motor.SincronizarAsync();
@@ -343,6 +347,219 @@ public sealed class IdentityModuloTests : IDisposable
     {
         await Assert.ThrowsAsync<ArgumentException>(() => _perfil.CambiarPerfilAsync("   ", "3001234567"));
         Assert.Equal(0, await _cola.ContarAsync(EstadoOperacion.PendienteSync));
+    }
+
+    // ---- Sesión degradada (ADR 0005: 48 horas, desbloqueo con huella o PIN, sin acciones críticas) ----
+
+    [Fact]
+    public async Task El_modo_sale_del_token_y_del_ultimo_contacto_con_Identity()
+    {
+        Assert.Equal(ModoDeSesion.SinSesion, await _sesion.ModoAsync());
+
+        await IniciarAsync();
+        Assert.Equal(ModoDeSesion.Activa, await _sesion.ModoAsync());
+
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+        Assert.Equal(ModoDeSesion.Degradada, await _sesion.ModoAsync(intentarRenovar: true));
+
+        _reloj.Avanzar(TimeSpan.FromHours(48));
+        Assert.Equal(ModoDeSesion.Expirada, await _sesion.ModoAsync(intentarRenovar: true));
+    }
+
+    [Fact]
+    public async Task Con_senal_un_token_vencido_se_renueva_antes_de_decidir_y_la_sesion_sigue_activa()
+    {
+        await IniciarAsync();
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+
+        await _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}");
+
+        Assert.Equal(ModoDeSesion.Activa, await _sesion.ModoAsync());
+        Assert.Equal(0, _autenticador.Llamadas);
+    }
+
+    [Fact]
+    public async Task Sin_sesion_no_se_encola_nada()
+    {
+        var error = await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}"));
+
+        Assert.Contains("Inicia sesión", error.Message);
+        Assert.Equal(0, await _cola.ContarAsync(EstadoOperacion.PendienteSync));
+    }
+
+    [Fact]
+    public async Task En_sesion_degradada_se_encola_solo_despues_de_desbloquear_con_huella_o_PIN()
+    {
+        await IniciarAsync();
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+
+        var bloqueada = await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _perfil.CambiarPerfilAsync("Carlos Ruiz", "3001234567"));
+        Assert.Contains("desbloquea con tu huella o PIN", bloqueada.Message);
+        Assert.Equal(0, await _cola.ContarAsync(EstadoOperacion.PendienteSync));
+
+        Assert.Equal(ResultadoDesbloqueo.Desbloqueada, await _sesion.DesbloquearAsync());
+        await _perfil.CambiarPerfilAsync("Carlos Ruiz", "3001234567");
+
+        Assert.Equal(1, _autenticador.Llamadas);
+        Assert.Contains("sin conexión", _autenticador.UltimoMotivo);
+        Assert.Equal(1, await _cola.ContarAsync(EstadoOperacion.PendienteSync));
+        var estado = await _sesion.EstadoAsync();
+        Assert.True(estado.Desbloqueada);
+        Assert.Equal(estado.UltimoContactoUtc + TimeSpan.FromHours(48), estado.DegradadaHastaUtc);
+    }
+
+    [Theory]
+    [InlineData(ResultadoDesbloqueo.Cancelada)]
+    [InlineData(ResultadoDesbloqueo.NoDisponible)]
+    public async Task Si_no_pasa_la_verificacion_local_la_sesion_degradada_sigue_bloqueada(ResultadoDesbloqueo respuesta)
+    {
+        await IniciarAsync();
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+        _autenticador.Respuesta = respuesta;
+
+        Assert.Equal(respuesta, await _sesion.DesbloquearAsync());
+        await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}"));
+        Assert.False((await _sesion.EstadoAsync()).Desbloqueada);
+    }
+
+    [Fact]
+    public async Task En_sesion_degradada_no_se_encolan_acciones_criticas_ni_desbloqueada()
+    {
+        await IniciarAsync();
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+        await _sesion.DesbloquearAsync();
+
+        var critica = await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _colaConSesion.EncolarAsync("Cargo", "ConfirmarEntrega", "{}"));
+        await _colaConSesion.EncolarAsync("Cargo", "CambiarEstado", "{}");
+        await _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}");
+
+        Assert.Contains("confirmar entregas", critica.Message);
+        Assert.Equal(2, await _cola.ContarAsync(EstadoOperacion.PendienteSync));
+    }
+
+    [Fact]
+    public async Task Con_senal_y_token_vigente_las_acciones_criticas_si_se_encolan()
+    {
+        await IniciarAsync();
+        _conectividad.HayConexion = false;
+
+        // Sin señal pero con el token vigente (por ejemplo, la entrega del camino feliz de la demo): sesión normal.
+        await _colaConSesion.EncolarAsync("Cargo", "ConfirmarEntrega", "{}");
+
+        Assert.Equal(1, await _cola.ContarAsync(EstadoOperacion.PendienteSync));
+    }
+
+    [Fact]
+    public async Task Encolar_no_se_queda_esperando_a_un_Identity_lento_ni_lo_reintenta_en_cada_accion()
+    {
+        await IniciarAsync();
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+        _identity.Responder = async (_, ct) =>
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30), ct);
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        };
+
+        var cronometro = System.Diagnostics.Stopwatch.StartNew();
+        await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}"));
+        await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}"));
+        cronometro.Stop();
+
+        // Con señal pero sin respuesta de Identity, la sesión queda degradada en segundos y no en el timeout de 15 s.
+        Assert.True(cronometro.Elapsed < TimeSpan.FromSeconds(8), $"Tardó {cronometro.Elapsed.TotalSeconds:N1} s.");
+        Assert.Single(_identity.Recibidas, r => r.Direccion.AbsolutePath == "/api/auth/refresh");
+        Assert.Equal(ModoDeSesion.Degradada, await _sesion.ModoAsync());
+
+        // Desbloqueada, se encola sin esperar a la red.
+        await _sesion.DesbloquearAsync();
+        await _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}");
+        Assert.Equal(1, await _cola.ContarAsync(EstadoOperacion.PendienteSync));
+    }
+
+    [Fact]
+    public async Task Pasadas_48_horas_sin_contacto_no_se_encola_ni_se_puede_desbloquear()
+    {
+        await IniciarAsync();
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromHours(48) + TimeSpan.FromMinutes(1));
+
+        var error = await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}"));
+
+        Assert.Contains("48 horas", error.Message);
+        Assert.Equal(ResultadoDesbloqueo.NoAplica, await _sesion.DesbloquearAsync());
+        Assert.Equal(0, _autenticador.Llamadas);
+    }
+
+    [Fact]
+    public async Task Las_48_horas_cuentan_desde_el_ultimo_contacto_real_y_una_renovacion_las_reinicia()
+    {
+        await IniciarAsync();
+        _reloj.Avanzar(TimeSpan.FromHours(30));
+        Assert.Equal("acceso-2", await _sesion.ObtenerTokenVigenteAsync());
+
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromHours(30));
+
+        // 60 horas desde el login, pero 30 desde la renovación: sigue dentro de las 48.
+        Assert.Equal(ModoDeSesion.Degradada, await _sesion.ModoAsync());
+    }
+
+    [Fact]
+    public async Task El_desbloqueo_no_sobrevive_a_una_renovacion()
+    {
+        await IniciarAsync();
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+        await _sesion.DesbloquearAsync();
+
+        _conectividad.HayConexion = true;
+        Assert.Equal("acceso-2", await _sesion.ObtenerTokenVigenteAsync());
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+
+        Assert.Equal(ModoDeSesion.Degradada, await _sesion.ModoAsync());
+        Assert.False((await _sesion.EstadoAsync()).Desbloqueada);
+        await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _colaConSesion.EncolarAsync("Fleet", "ReportarNovedad", "{}"));
+    }
+
+    [Fact]
+    public async Task Corregir_un_rechazo_A_tambien_pasa_por_el_control_de_la_sesion()
+    {
+        await IniciarAsync();
+        var mala = await _perfil.CambiarPerfilAsync("Carlos Ruiz", "12ab");
+        await _cola.MarcarSincronizandoAsync(mala.OperationId);
+        await _cola.RechazarAsync(mala.OperationId, TipoConflicto.A, "Teléfono inválido.");
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+
+        await Assert.ThrowsAsync<AccionNoPermitidaException>(() => _perfil.CorregirAsync(mala.OperationId, "Carlos Ruiz", "3001234567"));
+        await _sesion.DesbloquearAsync();
+        var corregida = await _perfil.CorregirAsync(mala.OperationId, "Carlos Ruiz", "3001234567");
+
+        Assert.Equal(EstadoOperacion.PendienteSync, corregida.Estado);
+    }
+
+    [Fact]
+    public async Task Lo_encolado_en_sesion_degradada_sale_con_el_token_nuevo_nunca_con_el_vencido()
+    {
+        await IniciarAsync();
+        _conectividad.HayConexion = false;
+        _reloj.Avanzar(TimeSpan.FromMinutes(20));
+        await _sesion.DesbloquearAsync();
+        await _perfil.CambiarPerfilAsync("Carlos Ruiz", "3001234567");
+        var motor = new MotorSincronizacion(_cola, new RegistroDeModulos([new ModuloIdentityDePrueba()]), _sesion, _conectividad, _http, _reloj);
+
+        Assert.Equal(ParadaSincronizacion.SinConexion, (await motor.SincronizarAsync()).Parada);
+        _conectividad.HayConexion = true;
+        var resultado = await motor.SincronizarAsync();
+
+        Assert.Equal(1, resultado.Sincronizadas);
+        Assert.Equal("Bearer acceso-2", _identity.Recibidas[^1].Authorization);
+        Assert.DoesNotContain(_identity.Recibidas, r => r.Metodo == HttpMethod.Put && r.Authorization == "Bearer acceso-1");
     }
 
     // ---- Lo que muestra la pantalla ------------------------------------------------------------
@@ -476,5 +693,22 @@ internal sealed class AlmacenEnMemoria : IAlmacenSeguro
     {
         Valores.Remove(clave);
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>El cuadro de huella o PIN de las pruebas: responde lo que la prueba diga y cuenta las veces que se abrió.</summary>
+internal sealed class AutenticadorFalso : IAutenticadorLocal
+{
+    public ResultadoDesbloqueo Respuesta { get; set; } = ResultadoDesbloqueo.Desbloqueada;
+
+    public int Llamadas { get; private set; }
+
+    public string UltimoMotivo { get; private set; } = string.Empty;
+
+    public Task<ResultadoDesbloqueo> VerificarAsync(string motivo, CancellationToken ct = default)
+    {
+        Llamadas++;
+        UltimoMotivo = motivo;
+        return Task.FromResult(Respuesta);
     }
 }

@@ -43,6 +43,16 @@
             <!-- Con sesion: el perfil guardado (se ve en modo avion), el cambio de datos y la sesion. -->
             <VerticalStackLayout Padding="16,18,16,24" Spacing="14" IsVisible="{Binding SesionIniciada}">
 
+                <!-- Modo de la sesion (ADR 0005): activa, sin conexion bloqueada o desbloqueada, o vencida. -->
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{Binding ModoFondo}" Stroke="Transparent" Padding="14,12">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="{Binding ModoTexto}" TextColor="{Binding ModoColor}" FontAttributes="Bold" FontSize="15" />
+                        <Label Text="{Binding ModoDetalle}" TextColor="{Binding ModoColor}" FontSize="14" IsVisible="{Binding TieneModoDetalle}" />
+                        <Button Text="Desbloquear con huella o PIN" Command="{Binding Desbloquear}" IsVisible="{Binding PuedeDesbloquear}"
+                                Style="{StaticResource Primario}" Margin="0,6,0,0" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <Border Style="{StaticResource Tarjeta}">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="{Binding Nombre}" FontSize="20" FontAttributes="Bold" />
