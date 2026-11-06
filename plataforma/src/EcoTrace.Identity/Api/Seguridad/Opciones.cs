@@ -62,3 +62,22 @@ public sealed class ClienteServicio
     /// <summary>Módulos a los que este servicio puede llamar (valores posibles de <c>aud</c>).</summary>
     public string[] Audiencias { get; set; } = [];
 }
+
+/// <summary>
+/// Sección <c>Identity:Verificacion</c>: el dato conocido de producción del ADR 0006 (Capa 2). Una organización con id
+/// fijo y un conductor que solo existen en producción: si al pedirlos responde otro entorno, el release se bloquea.
+/// Sin <see cref="TenantId"/> configurado no se siembra nada (en desarrollo no se configura).
+/// </summary>
+public sealed class OpcionesVerificacion
+{
+    public const string Seccion = "Identity:Verificacion";
+
+    public Guid TenantId { get; set; }
+
+    public string Nombre { get; set; } = "Verificación de producción";
+
+    public string? ConductorEmail { get; set; }
+
+    /// <summary>Contraseña del conductor de verificación. Sale de una variable de entorno, nunca del repositorio.</summary>
+    public string? ConductorPassword { get; set; }
+}

@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using EcoTrace.Identity.Api.Contracts;
+using EcoTrace.Identity.Api.Extensions;
 using EcoTrace.Identity.Api.Seguridad;
 using EcoTrace.Identity.Domain;
 using EcoTrace.Identity.Infrastructure;
@@ -64,6 +65,7 @@ public sealed class AuthController(
         await db.GuardarAsync("No se pudo iniciar la sesión.", ct);
 
         var acceso = emisor.EmitirDeUsuario(usuario.UserId, usuario.TenantId, usuario.Role!.Nombre, sesion.TokenRefrescoId);
+        HttpContext.RegistrarEntidad(usuario.UserId);
         registro.LogInformation("Sesión iniciada para {UserId}.", usuario.UserId);
         return new SesionResponse(acceso.Token, refresco, acceso.ExpiraEn);
     }
@@ -88,6 +90,7 @@ public sealed class AuthController(
         ExigirOrganizacionActiva(usuario.Tenant!);
 
         var acceso = emisor.EmitirDeUsuario(usuario.UserId, usuario.TenantId, usuario.Role!.Nombre, token.TokenRefrescoId);
+        HttpContext.RegistrarEntidad(usuario.UserId);
         return new SesionResponse(acceso.Token, solicitud.RefreshToken!, acceso.ExpiraEn);
     }
 
@@ -101,6 +104,7 @@ public sealed class AuthController(
         if (token?.Revocar(reloj.GetUtcNow().UtcDateTime) == true)
         {
             await db.GuardarAsync("No se pudo cerrar la sesión.", ct);
+            HttpContext.RegistrarEntidad(token.UserId);
             registro.LogInformation("Sesión cerrada para {UserId}.", token.UserId);
         }
 
@@ -133,6 +137,7 @@ public sealed class AuthController(
         }
 
         var token = emisor.EmitirDeServicio(cliente.ClientId, audiencia);
+        HttpContext.RegistrarEntidad($"servicio:{cliente.ClientId}");
         registro.LogInformation("Token de servicio emitido para {ClientId} hacia {Audiencia}.", cliente.ClientId, audiencia);
         return new TokenServicioResponse(token.Token, token.ExpiraEn);
     }

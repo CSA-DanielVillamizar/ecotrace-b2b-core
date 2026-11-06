@@ -9,6 +9,7 @@ builder.AddSeguridadIdentity();
 var app = builder.Build();
 app.ApplyMigrations<IdentityDbContext>();
 app.SembrarOperador();
+app.SembrarVerificacion();
 app.UseApiDefaults<IdentityDbContext>("Identity");
 
 // Después de UseApiDefaults para que el rechazo de un token ya lleve CorrelationId en el registro.

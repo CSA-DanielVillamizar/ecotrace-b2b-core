@@ -21,7 +21,7 @@ Lo que Identity ya entrega para el [Trabajo 3](especificacion.md) y lo que cada 
 - **Claims:** `sub` (UserId), `tenant_id`, `role`, `sid` (id de la sesión), `iss`, `aud`, `iat`, `nbf`, `exp` y `jti`. Los tokens de servicio no llevan `tenant_id` ni `sid`.
 - **`aud` de un usuario:** `["ecotrace-identity", "ecotrace-fleet", "ecotrace-cargo", "ecotrace-billing"]`. Un solo login sirve para los cuatro servicios.
 - **Duración:** access token de 15 minutos, refresh token de 7 días (guardado como SHA-256, se revoca con logout), token de servicio de 5 minutos.
-- **Emisor de desarrollo:** `https://identity.ecotrace.local/desarrollo`. La producción simulada (ADR 0006) tendrá otro emisor y otra clave.
+- **Emisor de desarrollo:** `https://identity.ecotrace.local/desarrollo`. La producción simulada usa `https://identity.ecotrace.local/produccion` y otra clave (ver "Producción simulada").
 
 ## Token de servicio (para Billing y Cargo)
 
@@ -241,6 +241,18 @@ adb shell settings put global auto_time 1; adb shell cmd connectivity airplane-m
 ### Qué no está todavía
 
 - **La huella real**: el emulador no tiene sensor; se probó con el PIN del dispositivo, que la especificación acepta.
+
+## Producción simulada y release (ADR 0006)
+
+- **`GET /api/_meta/entorno`** (sin token): `{ "servicio": "identity", "entorno": "desarrollo" | "produccion", "version": "0.3.0" }`. Sale del entorno real del proceso que responde, no de la configuración del cliente.
+- **Levantarla:** `scripts\levantar-produccion.ps1` arranca Identity en `http://localhost:6101` con `ASPNETCORE_ENVIRONMENT=Production`. La primera vez genera, **fuera del repositorio** (`%LOCALAPPDATA%\EcoTrace\produccion`), la clave RSA de firma y los secretos (contraseña del administrador y del conductor de verificación, secretos de `billing` y `cargo`), y se los pasa por variables de entorno. Usa su propia base, `identity-produccion.db`.
+- **Emisor de producción:** `https://identity.ecotrace.local/produccion`. Un token de desarrollo responde `401` en producción, y al revés.
+- **Dato conocido de producción (Capa 2):** la organización «Verificación de producción» con id fijo `0e7ace00-0000-4000-8000-0000000000a1` y el usuario `conductor.verificacion@ecotrace.co`. Solo se siembran si la configuración los trae (`Identity:Verificacion`), y solo la de producción los trae.
+- **Verificar:** `scripts\verificar-release.ps1` corre la Capa 1 (configuración) y la Capa 2 (comportamiento real) y termina con código distinto de cero si falla un paso que bloquea. Contra desarrollo bloquea. Cada escuadrón agrega sus pasos con `Paso`.
+- **Registros:** un registro por solicitud con `{ CorrelationId, EntityId, HttpStatus, OperationName, DurationMs }`, por ejemplo `Auth.Login -> 200 en 221 ms (entidad 1740da15-…)`. Nunca el cuerpo, la consulta ni los encabezados.
+- **Checklist con resultados reales:** [docs/release/identity.md](../release/identity.md).
+
+**Para los demás escuadrones:** el puerto de producción de cada servicio ya está en `src/EcoTrace.App/Configuracion/appsettings.Produccion.json` (6102 Fleet, 6103 Cargo, 6104 Billing). Agreguen su servicio a la lista de `levantar-produccion.ps1` y sus pasos a `verificar-release.ps1`. Para validar los tokens de producción usen el emisor de producción y el JWKS de `http://localhost:6101`; los secretos de servicio de producción están en `secretos.json` de esa carpeta (`secretoBilling`, `secretoCargo`).
 
 ## Lo que cambia para lo que ya existía
 
