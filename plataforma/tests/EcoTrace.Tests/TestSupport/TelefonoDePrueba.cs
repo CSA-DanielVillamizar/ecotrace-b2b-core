@@ -25,8 +25,9 @@ public sealed class TelefonoDePrueba : IDisposable
         var cliente = new ClienteIdentity(_http, servicios.Identity);
 
         Cola = new ColaLocalSqlite(_archivoCola, Reloj);
-        Sesion = new GestorDeSesion(Almacen, cliente, Conectividad, Cola, Reloj);
-        Perfil = new ServicioDePerfil(Sesion, cliente, Cola, Almacen, Reloj);
+        Sesion = new GestorDeSesion(Almacen, cliente, Conectividad, Cola, Autenticador, Reloj);
+        ColaDeLaApp = new ColaConSesion(Cola, Sesion);
+        Perfil = new ServicioDePerfil(Sesion, cliente, ColaDeLaApp, Almacen, Reloj);
         Motor = new MotorSincronizacion(Cola, new RegistroDeModulos([new ModuloIdentityDeLaApp(servicios)]), Sesion, Conectividad, _http, Reloj);
     }
 
@@ -36,9 +37,16 @@ public sealed class TelefonoDePrueba : IDisposable
 
     public AlmacenSeguroDePrueba Almacen { get; } = new();
 
+    /// <summary>El cuadro de huella o PIN: por omisión, la persona pasa la verificación.</summary>
+    public AutenticadorDePrueba Autenticador { get; } = new();
+
     public RedDelTelefono Red { get; }
 
+    /// <summary>La cola SQLite real, sin control de sesión (lo que ve el motor).</summary>
     public ColaLocalSqlite Cola { get; }
+
+    /// <summary>La cola como la ven los módulos en la app: pasa por la sesión antes de encolar.</summary>
+    public ColaConSesion ColaDeLaApp { get; }
 
     public GestorDeSesion Sesion { get; }
 
@@ -81,7 +89,11 @@ public sealed class TelefonoDePrueba : IDisposable
 /// </summary>
 public sealed class RedDelTelefono(HttpMessageHandler servidor, TelefonoDePrueba telefono) : DelegatingHandler(servidor)
 {
+    private readonly System.Collections.Concurrent.ConcurrentQueue<(HttpMethod Metodo, string Ruta, string? Authorization)> _enviadas = new();
     private int _perder;
+
+    /// <summary>Lo que el teléfono mandó al servidor, con el token que llevaba cada solicitud.</summary>
+    public IReadOnlyCollection<(HttpMethod Metodo, string Ruta, string? Authorization)> Enviadas => _enviadas;
 
     public void PerderProximaRespuesta() => Interlocked.Exchange(ref _perder, 1);
 
@@ -92,6 +104,7 @@ public sealed class RedDelTelefono(HttpMessageHandler servidor, TelefonoDePrueba
             throw new HttpRequestException("Sin señal (modo avión simulado).");
         }
 
+        _enviadas.Enqueue((solicitud.Method, solicitud.RequestUri!.AbsolutePath, solicitud.Headers.Authorization?.Parameter));
         var respuesta = await base.SendAsync(solicitud, ct);
         if (Interlocked.Exchange(ref _perder, 0) == 1)
         {
@@ -136,6 +149,12 @@ public sealed class AlmacenSeguroDePrueba : IAlmacenSeguro
 
     public IReadOnlyDictionary<string, string> Valores => _valores;
 
+    /// <summary>El access token guardado ahora mismo (para comprobar con cuál salió una acción).</summary>
+    public string? AccessToken =>
+        _valores.TryGetValue(ClavesDelAlmacen.Sesion, out var json)
+            ? System.Text.Json.JsonDocument.Parse(json).RootElement.GetProperty("accessToken").GetString()
+            : null;
+
     public Task<string?> LeerAsync(string clave) => Task.FromResult(_valores.GetValueOrDefault(clave));
 
     public Task GuardarAsync(string clave, string valor)
@@ -148,5 +167,18 @@ public sealed class AlmacenSeguroDePrueba : IAlmacenSeguro
     {
         _valores.Remove(clave);
         return Task.CompletedTask;
+    }
+}
+
+public sealed class AutenticadorDePrueba : IAutenticadorLocal
+{
+    public ResultadoDesbloqueo Respuesta { get; set; } = ResultadoDesbloqueo.Desbloqueada;
+
+    public int Llamadas { get; private set; }
+
+    public Task<ResultadoDesbloqueo> VerificarAsync(string motivo, CancellationToken ct = default)
+    {
+        Llamadas++;
+        return Task.FromResult(Respuesta);
     }
 }

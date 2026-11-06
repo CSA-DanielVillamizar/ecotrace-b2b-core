@@ -16,6 +16,7 @@ public sealed class PerfilViewModel : ObservableBase
     private readonly ServicioDePerfil _perfil;
     private readonly IColaLocal _cola;
     private readonly MotorSincronizacion _motor;
+    private readonly IConectividad _conectividad;
     private VistaDePerfil? _vista;
     private bool _conectado;
     private bool _ocupado;
@@ -25,18 +26,21 @@ public sealed class PerfilViewModel : ObservableBase
     private string _nombreEditado = string.Empty;
     private string _telefonoEditado = string.Empty;
 
-    public PerfilViewModel(GestorDeSesion sesion, ServicioDePerfil perfil, IColaLocal cola, MotorSincronizacion motor)
+    public PerfilViewModel(
+        GestorDeSesion sesion, ServicioDePerfil perfil, IColaLocal cola, MotorSincronizacion motor, IConectividad conectividad)
     {
         _sesion = sesion;
         _perfil = perfil;
         _cola = cola;
         _motor = motor;
+        _conectividad = conectividad;
 
         IniciarSesion = new Command(async () => await EjecutarAsync(IniciarSesionAsync), () => !Ocupado);
         GuardarCambios = new Command(async () => await EjecutarAsync(GuardarCambiosAsync), () => !Ocupado);
         CerrarOtrasSesiones = new Command(async () => await EjecutarAsync(CerrarOtrasSesionesAsync), () => !Ocupado);
         CerrarSesion = new Command(async () => await EjecutarAsync(CerrarSesionAsync), () => !Ocupado);
         Refrescar = new Command(async () => await EjecutarAsync(RefrescarAsync), () => !Ocupado);
+        Desbloquear = new Command(async () => await EjecutarAsync(DesbloquearAsync), () => !Ocupado);
     }
 
     /// <summary>La página la asigna: pregunta al conductor y devuelve si aceptó.</summary>
@@ -52,6 +56,8 @@ public sealed class PerfilViewModel : ObservableBase
 
     public Command Refrescar { get; }
 
+    public Command Desbloquear { get; }
+
     public bool SesionIniciada => _vista?.Sesion.Iniciada ?? false;
 
     public bool SinSesion => !SesionIniciada;
@@ -63,7 +69,7 @@ public sealed class PerfilViewModel : ObservableBase
         {
             if (Asignar(ref _ocupado, value))
             {
-                foreach (var comando in new[] { IniciarSesion, GuardarCambios, CerrarOtrasSesiones, CerrarSesion, Refrescar })
+                foreach (var comando in new[] { IniciarSesion, GuardarCambios, CerrarOtrasSesiones, CerrarSesion, Refrescar, Desbloquear })
                 {
                     comando.ChangeCanExecute();
                 }
@@ -124,6 +130,38 @@ public sealed class PerfilViewModel : ObservableBase
 
     public bool TieneMotivoDeCierre => SinSesion && MotivoDeCierre.Length > 0;
 
+    private ModoDeSesion Modo => _vista?.Sesion.Modo ?? ModoDeSesion.SinSesion;
+
+    /// <summary>Sesión degradada sin desbloquear: se muestra el botón de huella o PIN.</summary>
+    public bool PuedeDesbloquear => Modo == ModoDeSesion.Degradada && _vista?.Sesion.Desbloqueada != true;
+
+    public string ModoTexto => Modo switch
+    {
+        ModoDeSesion.Activa => "Sesión activa",
+        ModoDeSesion.Degradada when _vista?.Sesion.Desbloqueada == true =>
+            $"Sin conexión · limitada hasta {Fecha(_vista.Sesion.DegradadaHastaUtc)}",
+        ModoDeSesion.Degradada => "Sin conexión · bloqueada",
+        ModoDeSesion.Expirada => "Sesión vencida",
+        _ => string.Empty
+    };
+
+    public string ModoDetalle => Modo switch
+    {
+        ModoDeSesion.Degradada when _vista?.Sesion.Desbloqueada == true =>
+            "Puedes seguir trabajando sin conexión. No se pueden confirmar entregas ni mover dinero hasta que vuelva la señal. Lo que hagas sale con tu sesión renovada.",
+        ModoDeSesion.Degradada =>
+            "Tu sesión venció y no hay señal para renovarla. Desbloquea con tu huella o PIN para seguir trabajando sin conexión.",
+        ModoDeSesion.Expirada =>
+            "Pasaron más de 48 horas sin contacto con Identity. Conéctate para renovar la sesión o inicia sesión de nuevo.",
+        _ => string.Empty
+    };
+
+    public bool TieneModoDetalle => ModoDetalle.Length > 0;
+
+    public Color ModoFondo => Modo == ModoDeSesion.Activa ? Paleta.CorrectoFondo : Paleta.AdvertenciaFondo;
+
+    public Color ModoColor => Modo == ModoDeSesion.Activa ? Paleta.CorrectoTexto : Paleta.AdvertenciaTexto;
+
     public void Conectar()
     {
         if (_conectado)
@@ -134,6 +172,7 @@ public sealed class PerfilViewModel : ObservableBase
         _conectado = true;
         _cola.Cambio += AlCambiar;
         _sesion.Cambio += AlCambiar;
+        _conectividad.CambioDeConexion += AlCambiarConexion;
     }
 
     public void Desconectar()
@@ -141,6 +180,7 @@ public sealed class PerfilViewModel : ObservableBase
         _conectado = false;
         _cola.Cambio -= AlCambiar;
         _sesion.Cambio -= AlCambiar;
+        _conectividad.CambioDeConexion -= AlCambiarConexion;
     }
 
     /// <summary>Lee todo del teléfono (funciona sin señal). Con <paramref name="reiniciarFormulario"/> copia los datos al formulario.</summary>
@@ -216,10 +256,28 @@ public sealed class PerfilViewModel : ObservableBase
             Mensaje = ex.Message.Split(" (", 2)[0];
             return;
         }
+        catch (AccionNoPermitidaException ex)
+        {
+            Mensaje = ex.Message;
+            await CargarAsync(reiniciarFormulario: false);
+            return;
+        }
 
         Mensaje = string.Empty;
         await CargarAsync(reiniciarFormulario: false);
         _ = EnviarYRefrescarAsync();
+    }
+
+    private async Task DesbloquearAsync()
+    {
+        Mensaje = await _sesion.DesbloquearAsync() switch
+        {
+            ResultadoDesbloqueo.Desbloqueada or ResultadoDesbloqueo.NoAplica => string.Empty,
+            ResultadoDesbloqueo.NoDisponible =>
+                "Este teléfono no tiene huella ni bloqueo de pantalla. Configura un PIN o un patrón en Ajustes para trabajar sin conexión.",
+            _ => "No se pudo verificar tu identidad. Intenta de nuevo."
+        };
+        await CargarAsync(reiniciarFormulario: false);
     }
 
     private async Task CerrarOtrasSesionesAsync()
@@ -277,6 +335,10 @@ public sealed class PerfilViewModel : ObservableBase
         {
             await accion();
         }
+        catch (AccionNoPermitidaException ex)
+        {
+            Mensaje = ex.Message;
+        }
         catch (Exception)
         {
             Mensaje = "Algo falló. Lo que estaba en cola sigue guardado.";
@@ -286,6 +348,8 @@ public sealed class PerfilViewModel : ObservableBase
             Ocupado = false;
         }
     }
+
+    private void AlCambiarConexion(object? remitente, bool hayConexion) => AlCambiar(remitente, EventArgs.Empty);
 
     private async void AlCambiar(object? remitente, EventArgs e)
     {

@@ -174,16 +174,50 @@ public sealed class AppIdentityDePuntaAPuntaTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Sin_sesion_las_acciones_esperan_y_salen_despues_del_login()
+    public async Task Sin_sesion_no_se_encola_y_lo_que_quedo_en_cola_espera_al_login()
     {
         var telefono = NuevoTelefono();
-        var cambio = await telefono.Perfil.CambiarPerfilAsync("Carlos Ruiz", "3008888888");
+        var error = await Assert.ThrowsAsync<AccionNoPermitidaException>(() => telefono.Perfil.CambiarPerfilAsync("Carlos Ruiz", "3008888888"));
+        Assert.Contains("Inicia sesión", error.Message);
 
+        // Una acción que quedó de antes (encolada con sesión, que luego se cerró) espera a que haya sesión.
+        var cambio = await telefono.Cola.EncolarAsync("Identity", "ActualizarPerfil", """{"nombre":"Carlos Ruiz","telefono":"3008888888"}""");
         Assert.Equal(ParadaSincronizacion.SinSesion, (await telefono.Motor.SincronizarAsync()).Parada);
 
         Assert.True((await telefono.Sesion.IniciarSesionAsync(_email, Password)).Exitosa);
         Assert.Equal(1, (await telefono.Motor.SincronizarAsync()).Sincronizadas);
         Assert.Equal(EstadoOperacion.Sincronizado, (await telefono.Cola.ObtenerAsync(cambio.OperationId))!.Estado);
+    }
+
+    [Fact]
+    public async Task Sesion_degradada_desbloquear_sin_senal_y_al_volver_sale_con_el_token_nuevo()
+    {
+        var telefono = await TelefonoConSesionAsync();
+        var tokenDelLogin = telefono.Almacen.AccessToken;
+
+        // Sin señal y con el token vencido: la sesión queda degradada y pide desbloquear antes de encolar.
+        telefono.Conectividad.HayConexion = false;
+        telefono.Reloj.Adelantar(TimeSpan.FromMinutes(20));
+        Assert.Equal(ModoDeSesion.Degradada, await telefono.Sesion.ModoAsync(intentarRenovar: true));
+        await Assert.ThrowsAsync<AccionNoPermitidaException>(() => telefono.Perfil.CambiarPerfilAsync("Carlos Ruiz", "3005555555"));
+        await Assert.ThrowsAsync<AccionNoPermitidaException>(() => telefono.ColaDeLaApp.EncolarAsync("Cargo", "ConfirmarEntrega", "{}"));
+
+        Assert.Equal(ResultadoDesbloqueo.Desbloqueada, await telefono.Sesion.DesbloquearAsync());
+        var cambio = await telefono.Perfil.CambiarPerfilAsync("Carlos Ruiz", "3005555555");
+        await Assert.ThrowsAsync<AccionNoPermitidaException>(() => telefono.ColaDeLaApp.EncolarAsync("Cargo", "ConfirmarEntrega", "{}"));
+
+        // Vuelve la señal: el motor renueva el token con Identity real y envía con el nuevo.
+        telefono.Conectividad.HayConexion = true;
+        var envio = await telefono.Motor.SincronizarAsync();
+
+        Assert.Equal(1, envio.Sincronizadas);
+        Assert.Equal(EstadoOperacion.Sincronizado, (await telefono.Cola.ObtenerAsync(cambio.OperationId))!.Estado);
+        Assert.Equal("3005555555", (await PerfilEnElServidorAsync()).Texto("telefono"));
+
+        var put = Assert.Single(telefono.Red.Enviadas, e => e.Metodo == HttpMethod.Put && e.Ruta == "/api/perfil");
+        Assert.NotEqual(tokenDelLogin, put.Authorization);
+        Assert.Equal(telefono.Almacen.AccessToken, put.Authorization);
+        Assert.Contains(telefono.Red.Enviadas, e => e.Ruta == "/api/auth/refresh");
     }
 
     [Fact]
