@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!-- La que devuelve GET /api/_meta/entorno (ADR 0006). -->
+    <Version>0.3.0</Version>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Domain\EcoTrace.Identity.Domain.csproj" />
     <ProjectReference Include="..\Infrastructure\EcoTrace.Identity.Infrastructure.csproj" />

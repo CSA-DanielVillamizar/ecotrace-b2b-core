@@ -1,5 +1,6 @@
 using System.Text.Json;
 using EcoTrace.Identity.Api.Contracts;
+using EcoTrace.Identity.Api.Extensions;
 using EcoTrace.Identity.Api.Seguridad;
 using EcoTrace.Identity.Domain;
 using EcoTrace.Identity.Infrastructure;
@@ -38,6 +39,7 @@ public sealed class PerfilController(IdentityDbContext db, TimeProvider reloj, I
     public async Task<ActionResult<PerfilResponse>> Obtener(CancellationToken ct)
     {
         var usuario = await BuscarUsuarioAsync(tracking: false, ct);
+        HttpContext.RegistrarEntidad(usuario.UserId);
         return PerfilResponse.De(usuario);
     }
 
@@ -90,6 +92,7 @@ public sealed class PerfilController(IdentityDbContext db, TimeProvider reloj, I
     {
         var operacionId = LeerClave(encabezado);
         var userId = User.UserId() ?? throw DomainException.NotFound("El token no identifica a un usuario.");
+        HttpContext.RegistrarEntidad(userId);
 
         if (operacionId is { } clave)
         {

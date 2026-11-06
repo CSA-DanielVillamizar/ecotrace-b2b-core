@@ -22,7 +22,7 @@ public static class ApiDefaults
         this WebApplicationBuilder builder, string servicio, string archivoDb)
         where TContext : DbContext
     {
-        builder.Host.UseSerilog((_, configuracion) => configuracion
+        builder.Host.UseSerilog((_, servicios, configuracion) => configuracion
             .MinimumLevel.Information()
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
@@ -34,8 +34,13 @@ public static class ApiDefaults
             .MinimumLevel.Override("Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddleware", LogEventLevel.Fatal)
             .Enrich.FromLogContext()
             .Enrich.WithProperty("Servicio", servicio)
+            // Destinos extra registrados como ILogEventSink (las pruebas lo usan para revisar qué se registra).
+            .ReadFrom.Services(servicios)
             .WriteTo.Console(outputTemplate:
-                "[{Timestamp:HH:mm:ss} {Level:u3}] {Servicio} | {CorrelationId} | {Message:lj}{NewLine}{Exception}"));
+                "[{Timestamp:HH:mm:ss} {Level:u3}] {Servicio} | {CorrelationId} | {Message:lj}{NewLine}{Exception}"),
+            // Un logger propio por servicio, no el estático global: así varios servicios en el mismo proceso (las pruebas
+            // de integración) no se roban los registros entre sí.
+            preserveStaticLogger: true);
 
         // La cadena de conexion se resuelve al primer uso (no al registrar), para que las
         // pruebas de integracion puedan reemplazarla con su propia base temporal.
@@ -69,6 +74,13 @@ public static class ApiDefaults
     /// <summary>CorrelationId de la solicitud en curso (ver UseApiDefaults).</summary>
     public static string CorrelationId(this HttpContext http) =>
         http.Items[EncabezadoCorrelacion] as string ?? Guid.NewGuid().ToString("N");
+
+    /// <summary>Versión del servicio (la de su .csproj), sin el sufijo del commit.</summary>
+    public static string VersionDelServicio { get; } =
+        typeof(ApiDefaults).Assembly
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>()
+            .FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "0.0.0";
 
     public static WebApplication ApplyMigrations<TContext>(this WebApplication app)
         where TContext : DbContext
@@ -104,7 +116,7 @@ public static class ApiDefaults
             }
         });
 
-        app.UseSerilogRequestLogging();
+        app.UseMiddleware<RegistroDeSolicitudes>();
         app.UseExceptionHandler();
         app.UseStatusCodePages();
         app.UseCors(PoliticaCors);
@@ -139,6 +151,16 @@ public static class ApiDefaults
                 ContextoMetadata.Describir(http.RequestServices.GetRequiredService<TContext>(), servicio))
             .WithName("Contexto")
             .WithSummary("Describe las entidades del contexto y sus referencias externas por ID.");
+
+        // ADR 0006: el entorno real del servicio que responde, para comprobarlo sin fiarse de la configuración del cliente.
+        app.MapGet("/api/_meta/entorno", (IHostEnvironment entorno) => new
+            {
+                servicio = servicio.ToLowerInvariant(),
+                entorno = entorno.IsProduction() ? "produccion" : entorno.IsDevelopment() ? "desarrollo" : entorno.EnvironmentName.ToLowerInvariant(),
+                version = VersionDelServicio
+            })
+            .WithName("Entorno")
+            .WithSummary("Entorno (desarrollo o produccion) y versión del servicio que responde.");
 
         return app;
     }

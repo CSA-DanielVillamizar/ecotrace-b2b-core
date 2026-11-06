@@ -44,6 +44,14 @@ public sealed class Tenant
     public static Tenant CrearOperador(Guid tenantId, string nombre, DateTime ahoraUtc) =>
         Nueva(tenantId, nombre.Trim(), TenantType.Operador, ahoraUtc);
 
+    /// <summary>Una organización con un id fijo de configuración (el dato conocido de producción del ADR 0006).</summary>
+    public static Tenant CrearConId(Guid tenantId, string nombre, TenantType tenantType, DateTime ahoraUtc)
+    {
+        var tenant = Crear(nombre, tenantType, ahoraUtc);
+        tenant.TenantId = tenantId;
+        return tenant;
+    }
+
     private static Tenant Nueva(Guid tenantId, string nombre, TenantType tenantType, DateTime ahoraUtc) =>
         new()
         {

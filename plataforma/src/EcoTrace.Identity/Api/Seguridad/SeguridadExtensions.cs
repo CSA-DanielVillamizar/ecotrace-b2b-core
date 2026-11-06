@@ -30,6 +30,7 @@ public static class SeguridadExtensions
             .Validate(o => o.Audiencias.Length > 0, "Falta Jwt:Audiencias.")
             .ValidateOnStart();
         servicios.AddOptions<OpcionesOperador>().BindConfiguration(OpcionesOperador.Seccion);
+        servicios.AddOptions<OpcionesVerificacion>().BindConfiguration(OpcionesVerificacion.Seccion);
 
         servicios.AddSingleton(sp => ClavesDeFirma.Cargar(
             sp.GetRequiredService<IOptions<OpcionesJwt>>().Value,
@@ -137,6 +138,45 @@ public static class SeguridadExtensions
         db.SaveChanges();
 
         app.Logger.LogInformation("Administrador inicial de la plataforma sembrado ({UserId}).", admin.UserId);
+        return app;
+    }
+
+    /// <summary>
+    /// Siembra el dato conocido de producción (ADR 0006, Capa 2): la organización de verificación con su id fijo y su
+    /// conductor. Idempotente, y no hace nada si <see cref="OpcionesVerificacion.TenantId"/> no está configurado.
+    /// </summary>
+    public static WebApplication SembrarVerificacion(this WebApplication app)
+    {
+        var verificacion = app.Services.GetRequiredService<IOptions<OpcionesVerificacion>>().Value;
+        if (verificacion.TenantId == Guid.Empty)
+        {
+            return app;
+        }
+
+        using var alcance = app.Services.CreateScope();
+        var db = alcance.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var ahora = alcance.ServiceProvider.GetRequiredService<TimeProvider>().GetUtcNow().UtcDateTime;
+
+        if (!db.Tenants.Any(t => t.TenantId == verificacion.TenantId))
+        {
+            db.Tenants.Add(Tenant.CrearConId(verificacion.TenantId, verificacion.Nombre, TenantType.Transportista, ahora));
+            db.SaveChanges();
+        }
+
+        var email = verificacion.ConductorEmail?.Trim().ToLowerInvariant();
+        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(verificacion.ConductorPassword) || db.Users.Any(u => u.Email == email))
+        {
+            return app;
+        }
+
+        Usuario.ValidarContrasena(verificacion.ConductorPassword);
+        var rol = db.Roles.Single(r => r.Nombre == Roles.Conductor);
+        var conductor = Usuario.Crear(verificacion.TenantId, rol.RoleId, "Conductor de verificación", email, ahora);
+        conductor.AsignarContrasenaHash(alcance.ServiceProvider.GetRequiredService<Contrasenas>().Calcular(conductor, verificacion.ConductorPassword));
+        db.Users.Add(conductor);
+        db.SaveChanges();
+
+        app.Logger.LogInformation("Conductor de verificación sembrado ({UserId}).", conductor.UserId);
         return app;
     }
 

@@ -104,7 +104,7 @@ Para el [Trabajo 3](docs/trabajo-03/especificacion.md) hay una app .NET MAUI (An
 
 ## Las APIs en resumen
 
-Todas devuelven JSON con los enums como texto y los errores como `ProblemDetails`. Además de lo siguiente, cada servicio expone `GET /health` y `GET /api/_meta/contexto`.
+Todas devuelven JSON con los enums como texto y los errores como `ProblemDetails`. Además de lo siguiente, cada servicio expone `GET /health` y `GET /api/_meta/contexto`; Identity expone también `GET /api/_meta/entorno` (ADR 0006).
 
 | Servicio | Endpoints |
 |---|---|
@@ -120,7 +120,7 @@ Las peticiones de ejemplo del Trabajo 1 están en [docs/requests.http](docs/requ
 - **Autenticación y autorización en Fleet, Cargo y Billing** (ADR 0004). Identity ya emite y valida JWT ([trabajo-03/identity.md](docs/trabajo-03/identity.md)) y exige token en sus propias rutas; los otros tres servicios todavía aceptan el `TenantId` que llega en la solicitud sin verificarlo y sus rutas no piden token. Se explica en [decisiones-de-diseno.md](docs/decisiones-de-diseno.md#5-el-tenantid-llega-en-el-cuerpo-de-la-solicitud).
 - **Un broker de mensajes.** Los eventos viajan por HTTP desde el Outbox; el contrato del mensaje es el del ADR, y cambiar a RabbitMQ o Service Bus solo toca el publicador y el punto de recepción.
 - **El Saga «Iniciar Transporte»** del ADR 0003 y la resolución de una disputa de pago: `EnDisputa` es un estado final.
-- **La app móvil real y el despliegue** (ADR 0005 y 0006). El esqueleto de la app existe; sus pantallas, los tokens en el teléfono y el release son del Trabajo 3.
+- **La app móvil real y el despliegue** (ADR 0005 y 0006). El esqueleto de la app existe y el módulo Identity ya tiene sesión, perfil offline y su release ([docs/release/identity.md](docs/release/identity.md)): producción simulada con `scripts/levantar-produccion.ps1` y verificación en dos capas con `scripts/verificar-release.ps1`. Faltan los módulos de los demás escuadrones, sus pasos en esos dos scripts, el flujo `app-release.yml` y la firma de Release.
 
 Los servicios siguen sin validar fuera del Saga que las referencias a otros contextos existan. Dentro del Saga sí se comprueban, y por llamadas, no leyendo bases ajenas.
 
@@ -129,6 +129,7 @@ Los servicios siguen sin validar fuera del Saga que las referencias a otros cont
 - [Trabajo 2: especificación de los contratos](docs/trabajo-02/especificacion.md) y [verificación](docs/trabajo-02/verificacion.http)
 - [Trabajo 2: referencia, criterio por criterio](docs/trabajo-02/referencia.md): dónde está cada cosa de la rúbrica y qué prueba la demuestra
 - [Trabajo 3: especificación](docs/trabajo-03/especificacion.md), [el esqueleto de la app](docs/trabajo-03/esqueleto-movil.md) y [Identity: tokens y cómo validarlos](docs/trabajo-03/identity.md)
+- [Checklist de release de Identity](docs/release/identity.md)
 - [Decisiones de diseño](docs/decisiones-de-diseno.md)
 - [Guía de marca y de interfaz](docs/brand/README.md)
 - [Peticiones de ejemplo](docs/requests.http)
