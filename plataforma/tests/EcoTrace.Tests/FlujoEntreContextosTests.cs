@@ -28,7 +28,7 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
     [Fact]
     public async Task Del_alta_de_organizaciones_a_la_liberacion_del_pago_solo_con_identificadores()
     {
-        var identity = _identity.CreateClient();
+        var identity = await Acceso.ClienteAdministradorAsync(_identity.CreateClient);
         var fleet = _fleet.CreateClient();
         var cargo = _cargo.CreateClient();
         var billing = _billing.CreateClient();

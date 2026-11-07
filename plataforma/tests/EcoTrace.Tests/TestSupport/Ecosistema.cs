@@ -93,7 +93,11 @@ public sealed class Ecosistema : IAsyncDisposable
             b.UseSetting("Resiliencia:Identity:TimeoutMs", opciones.TimeoutIdentityMs.ToString());
             b.ConfigureTestServices(servicios =>
             {
-                servicios.AddHttpClient(ServiciosExternos.Identity).ConfigurePrimaryHttpMessageHandler(() => IdentityDesdeBilling);
+                // Billing llama a Identity con token de servicio (Trabajo 3): sin él, la ruta interna responde 401.
+                servicios.AddHttpClient(ServiciosExternos.Identity)
+                    .ConfigurePrimaryHttpMessageHandler(() => IdentityDesdeBilling)
+                    .AddHttpMessageHandler(() => new TokenDeServicioHandler(
+                        () => Identity.CreateClient(), "billing", Acceso.SecretoBilling, "ecotrace-identity"));
                 servicios.AddHttpClient(ServiciosExternos.Fleet).ConfigurePrimaryHttpMessageHandler(() => FleetDesdeBilling);
             });
         });
@@ -108,6 +112,7 @@ public sealed class Ecosistema : IAsyncDisposable
         });
 
         ClienteIdentity = Identity.CreateClient();
+        ClienteIdentityComoBilling = Identity.CreateClient();
         ClienteFleet = Fleet.CreateClient();
         ClienteCargo = Cargo.CreateClient();
         ClienteBilling = Billing.CreateClient();
@@ -121,7 +126,11 @@ public sealed class Ecosistema : IAsyncDisposable
 
     public WebApplicationFactory<BillingApiMarker> Billing { get; }
 
+    /// <summary>Identity con token del administrador de la plataforma: crea organizaciones y usuarios, suspende.</summary>
     public HttpClient ClienteIdentity { get; }
+
+    /// <summary>Identity con token de servicio de Billing: el que usa las rutas internas (autorizaciones de pago).</summary>
+    public HttpClient ClienteIdentityComoBilling { get; }
 
     public HttpClient ClienteFleet { get; }
 
@@ -154,6 +163,10 @@ public sealed class Ecosistema : IAsyncDisposable
         {
             (await cliente.GetAsync("/health")).EnsureSuccessStatusCode();
         }
+
+        ecosistema.ClienteIdentity.ConToken(await ecosistema.ClienteIdentity.TokenAdministradorAsync());
+        ecosistema.ClienteIdentityComoBilling.ConToken(await ecosistema.ClienteIdentityComoBilling.TokenServicioAsync(
+            "billing", Acceso.SecretoBilling, "ecotrace-identity"));
 
         return ecosistema;
     }
@@ -258,7 +271,7 @@ public sealed class Ecosistema : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var cliente in new[] { ClienteIdentity, ClienteFleet, ClienteCargo, ClienteBilling })
+        foreach (var cliente in new[] { ClienteIdentity, ClienteIdentityComoBilling, ClienteFleet, ClienteCargo, ClienteBilling })
         {
             cliente.Dispose();
         }

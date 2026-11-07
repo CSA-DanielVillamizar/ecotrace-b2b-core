@@ -30,6 +30,30 @@ public sealed partial class User
 
     public DateTime CreadoEn { get; private set; }
 
+    /// <summary>
+    /// Hash de la contraseña (PBKDF2, lo calcula la capa Api). Null si el usuario aún no tiene contraseña:
+    /// en ese caso no puede iniciar sesión. La contraseña en claro nunca llega al dominio ni a la base.
+    /// </summary>
+    public string? ContrasenaHash { get; private set; }
+
+    public void AsignarContrasenaHash(string hash)
+    {
+        if (string.IsNullOrWhiteSpace(hash))
+        {
+            throw DomainException.Validation("El hash de la contraseña no puede estar vacío.");
+        }
+
+        ContrasenaHash = hash;
+    }
+
+    /// <summary>Valida la política mínima de contraseña antes de calcular su hash.</summary>
+    public static void ValidarContrasena(string? contrasena)
+    {
+        if (contrasena is null || contrasena.Length is < 8 or > 128)
+        {
+            throw DomainException.Validation("La contraseña debe tener entre 8 y 128 caracteres.");
+        }
+    }
     public static User Crear(Guid tenantId, int roleId, string? nombre, string? email, DateTime ahoraUtc)
     {
         var nombreLimpio = (nombre ?? string.Empty).Trim();
