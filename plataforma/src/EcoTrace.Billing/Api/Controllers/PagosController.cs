@@ -1,6 +1,7 @@
 using EcoTrace.Billing.Api.Contracts;
 using EcoTrace.Billing.Domain;
 using EcoTrace.Billing.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -11,13 +12,23 @@ namespace EcoTrace.Billing.Api.Controllers;
 [Produces("application/json")]
 public sealed class PagosController(BillingDbContext db, TimeProvider reloj) : ControllerBase
 {
+    private static readonly Guid OperadorTenantId = Guid.Parse("0e7ace00-0000-4000-8000-000000000001");
+
     /// <summary>Crea un pago y deja los fondos en custodia. Una carga admite un solo pago.</summary>
     [HttpPost]
+    [Authorize(Policy = "CrearPago")]
     [ProducesResponseType<PagoDetalleResponse>(StatusCodes.Status201Created)]
     [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PagoDetalleResponse>> Crear(CrearPagoRequest solicitud, CancellationToken ct)
     {
+        var tenantId = ObtenerTenantId();
+        if (tenantId is not null && tenantId != OperadorTenantId && solicitud.GeneradorTenantId != tenantId)
+        {
+            return Forbid();
+        }
+
         var pago = Pago.Crear(
             solicitud.GeneradorTenantId!.Value,
             solicitud.TransportistaTenantId!.Value,
@@ -33,11 +44,18 @@ public sealed class PagosController(BillingDbContext db, TimeProvider reloj) : C
 
     /// <summary>Lista los pagos. El filtro por organización coincide con generador o transportista.</summary>
     [HttpGet]
+    [Authorize(Policy = "Lectura")]
     public async Task<IReadOnlyList<PagoResponse>> Listar(
         [FromQuery] Guid? tenantId, [FromQuery] EstadoEscrow? estado, CancellationToken ct)
     {
+        var miTenant = ObtenerTenantId();
         var consulta = db.Pagos.AsNoTracking();
-        if (tenantId is not null)
+
+        if (miTenant is not null && miTenant != OperadorTenantId)
+        {
+            consulta = consulta.Where(p => p.GeneradorTenantId == miTenant || p.TransportistaTenantId == miTenant);
+        }
+        else if (tenantId is not null)
         {
             consulta = consulta.Where(p => p.GeneradorTenantId == tenantId || p.TransportistaTenantId == tenantId);
         }
@@ -52,19 +70,36 @@ public sealed class PagosController(BillingDbContext db, TimeProvider reloj) : C
     }
 
     [HttpGet("{id:guid}")]
+    [Authorize(Policy = "Lectura")]
     [ProducesResponseType<PagoDetalleResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PagoDetalleResponse>> Obtener(Guid id, CancellationToken ct) =>
-        PagoDetalleResponse.De(await CargarAsync(id, tracking: false, ct));
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<PagoDetalleResponse>> Obtener(Guid id, CancellationToken ct)
+    {
+        var pago = await CargarAsync(id, tracking: false, ct);
+        if (!TieneAcceso(pago))
+        {
+            return Forbid();
+        }
+
+        return PagoDetalleResponse.De(pago);
+    }
 
     /// <summary>Libera los fondos al transportista. Solo desde EnCustodia.</summary>
     [HttpPost("{id:guid}/liberar")]
+    [Authorize(Policy = "Administrador")]
     [ProducesResponseType<PagoDetalleResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PagoDetalleResponse>> Liberar(Guid id, CancellationToken ct)
     {
         var pago = await CargarAsync(id, tracking: true, ct);
+        if (!TieneAcceso(pago))
+        {
+            return Forbid();
+        }
+
         pago.Liberar(reloj.GetUtcNow().UtcDateTime);
         await db.GuardarAsync("No se pudo liberar el pago.", ct);
 
@@ -73,12 +108,19 @@ public sealed class PagosController(BillingDbContext db, TimeProvider reloj) : C
 
     /// <summary>Devuelve los fondos al generador. Solo desde EnCustodia.</summary>
     [HttpPost("{id:guid}/reembolso")]
+    [Authorize(Policy = "Administrador")]
     [ProducesResponseType<PagoDetalleResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<ActionResult<PagoDetalleResponse>> Reembolsar(Guid id, CancellationToken ct)
     {
         var pago = await CargarAsync(id, tracking: true, ct);
+        if (!TieneAcceso(pago))
+        {
+            return Forbid();
+        }
+
         pago.Reembolsar(reloj.GetUtcNow().UtcDateTime);
         await db.GuardarAsync("No se pudo reembolsar el pago.", ct);
 
@@ -87,8 +129,34 @@ public sealed class PagosController(BillingDbContext db, TimeProvider reloj) : C
 
     /// <summary>Historial de cambios del pago, del más antiguo al más reciente.</summary>
     [HttpGet("{id:guid}/auditoria")]
-    public async Task<IReadOnlyList<AuditoriaResponse>> Auditoria(Guid id, CancellationToken ct) =>
-        PagoDetalleResponse.De(await CargarAsync(id, tracking: false, ct)).Auditoria;
+    [Authorize(Policy = "Lectura")]
+    [ProducesResponseType<IReadOnlyList<AuditoriaResponse>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<IReadOnlyList<AuditoriaResponse>>> Auditoria(Guid id, CancellationToken ct)
+    {
+        var pago = await CargarAsync(id, tracking: false, ct);
+        if (!TieneAcceso(pago))
+        {
+            return Forbid();
+        }
+
+        return Ok(PagoDetalleResponse.De(pago).Auditoria);
+    }
+
+    private Guid? ObtenerTenantId() =>
+        Guid.TryParse(User.FindFirst("tenant_id")?.Value, out var tenantId) ? tenantId : null;
+
+    private bool TieneAcceso(Pago pago)
+    {
+        var tenantId = ObtenerTenantId();
+        if (tenantId is null)
+        {
+            return false;
+        }
+
+        return tenantId == OperadorTenantId || pago.GeneradorTenantId == tenantId || pago.TransportistaTenantId == tenantId;
+    }
 
     private async Task<Pago> CargarAsync(Guid id, bool tracking, CancellationToken ct)
     {

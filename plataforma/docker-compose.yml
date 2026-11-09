@@ -64,6 +64,9 @@ services:
     ports: ["5104:8080"]
     volumes: ["billing-data:/app/App_Data"]
     environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Jwt__Emisor: https://identity.ecotrace.local/desarrollo
+      Jwt__Audiencia: ecotrace-billing
       # Servicios que el Saga llama. Se resuelven por nombre dentro de la red de compose.
       Servicios__Identity__BaseUrl: http://identity:8080
       Servicios__Fleet__BaseUrl: http://fleet:8080
