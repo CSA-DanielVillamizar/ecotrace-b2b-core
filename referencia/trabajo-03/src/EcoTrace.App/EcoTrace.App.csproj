@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    La app del conductor (.NET MAUI, Android). No esta en EcoTrace.sln a proposito: compilarla necesita el workload de
+    MAUI y el SDK de Android, que el ejecutor por defecto de GitHub Actions no trae. Se abre con EcoTrace.Mobile.sln.
+    La logica que se puede probar sin emulador vive en EcoTrace.Mobile.Core.
+  -->
+  <PropertyGroup>
+    <TargetFramework></TargetFramework>
+    <TargetFrameworks>net8.0-android</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>EcoTrace.App</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+
+    <ApplicationTitle>EcoTrace</ApplicationTitle>
+    <ApplicationId>co.edu.itm.ecotrace.conductor</ApplicationId>
+    <ApplicationDisplayVersion>0.1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <SupportedOSPlatformVersion>24.0</SupportedOSPlatformVersion>
+
+    <!-- El proyecto del lado servidor usa versiones centrales de paquetes; MAUI trae las suyas con el workload. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <!-- Las advertencias de MAUI cambian entre versiones del SDK; la regla de "advertencias como errores" se queda en Mobile.Core. -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);XC0022;XC0023;CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#0F3D3E" />
+    <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#0A2C2C" BaseSize="160,160" />
+    <MauiImage Include="Resources\Images\*" />
+  </ItemGroup>
+
+  <!--
+    La configuracion del entorno se incrusta segun el build (ADR 0006): Debug lleva la de desarrollo y Release la de
+    produccion. La app siempre la lee como "appsettings.json"; no hay direcciones escritas en el codigo.
+  -->
+  <ItemGroup Condition="'$(Configuration)' != 'Release'">
+    <EmbeddedResource Include="Configuracion\appsettings.Desarrollo.json" LogicalName="appsettings.json" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(Configuration)' == 'Release'">
+    <EmbeddedResource Include="Configuracion\appsettings.Produccion.json" LogicalName="appsettings.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <ProjectReference Include="..\EcoTrace.Mobile.Core\EcoTrace.Mobile.Core.csproj" />
+  </ItemGroup>
+
+</Project>
