@@ -1,8 +1,12 @@
 using System.Net;
+using EcoTrace.Billing.Api.Seguridad;
 using EcoTrace.FleetManagement.Api.Seguridad;
 using EcoTrace.Tests.TestSupport;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace EcoTrace.Tests;
 
@@ -37,7 +41,14 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
                 servicios.AddHttpClient(SeguridadFleet.ClienteJwks).ConfigurePrimaryHttpMessageHandler(() => _identity.Server.CreateHandler())))
             .CreateClient();
         var cargo = _cargo.CreateClient();
-        var billing = _billing.CreateClient();
+        // Billing también valida el token con la clave pública de este Identity (Trabajo 3).
+        var billing = _billing.WithWebHostBuilder(b => b.ConfigureTestServices(servicios =>
+                servicios.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
+                    o.ConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+                        "http://localhost/.well-known/jwks.json",
+                        new JwksBillingRetriever(),
+                        new HttpDocumentRetriever(new HttpClient(_identity.Server.CreateHandler())) { RequireHttps = false }))))
+            .CreateClient();
 
         // 1. Identity emite los identificadores base.
         var generador = await identity.PostearAsync("/api/tenants", new { nombre = "Generadora del Valle S.A.", tenantType = "Generador" });
@@ -58,8 +69,12 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
         fleet.ConToken(await identity.TokenDeAsync(emailSupervisor, "Supervisor-2026"));
         Assert.Equal(HttpStatusCode.OK, (await fleet.ConsultarAsync("/api/vehiculos")).Estado);
 
+        // Lo mismo con Billing, con el token del administrador de la plataforma.
+        billing.ConToken(await _identity.CreateClient().TokenAdministradorAsync());
+        Assert.Equal(HttpStatusCode.OK, (await billing.ConsultarAsync("/api/pagos")).Estado);
+
         // Identity deja de existir. Los otros tres contextos siguen operando: solo guardan los identificadores
-        // que recibieron, y Fleet valida el token con la clave que ya tiene en memoria, sin volver a Identity.
+        // que recibieron, y Fleet y Billing validan el token con la clave que ya tienen en memoria, sin volver a Identity.
         await _identity.DisposeAsync();
 
         // 2. Fleet Management registra vehiculo y conductor del transportista. La organización y quién

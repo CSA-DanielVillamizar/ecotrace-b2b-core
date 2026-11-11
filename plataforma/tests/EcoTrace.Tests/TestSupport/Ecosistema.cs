@@ -1,12 +1,16 @@
 using System.Collections.Concurrent;
 using System.Net;
 using EcoTrace.Billing.Api.Saga;
+using EcoTrace.Billing.Api.Seguridad;
 using EcoTrace.CargoTracking.Api.Outbox;
 using EcoTrace.FleetManagement.Api.Extensions;
 using EcoTrace.FleetManagement.Api.Seguridad;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace EcoTrace.Tests.TestSupport;
 
@@ -100,16 +104,17 @@ public sealed class Ecosistema : IAsyncDisposable
             b.UseSetting("Resiliencia:Identity:TimeoutMs", opciones.TimeoutIdentityMs.ToString());
             b.ConfigureTestServices(servicios =>
             {
-                // Billing llama a Identity con token de servicio (Trabajo 3): sin él, la ruta interna responde 401.
-                servicios.AddHttpClient(ServiciosExternos.Identity)
-                    .ConfigurePrimaryHttpMessageHandler(() => IdentityDesdeBilling)
-                    .AddHttpMessageHandler(() => new TokenDeServicioHandler(
-                        () => Identity.CreateClient(), "billing", Acceso.SecretoBilling, "ecotrace-identity"));
-                // Lo mismo hacia Fleet: sus rutas internas (reservas y liberaciones) también exigen token de servicio.
-                servicios.AddHttpClient(ServiciosExternos.Fleet)
-                    .ConfigurePrimaryHttpMessageHandler(() => FleetDesdeBilling)
-                    .AddHttpMessageHandler(() => new TokenDeServicioHandler(
-                        () => Identity.CreateClient(), "billing", Acceso.SecretoBilling, "ecotrace-fleet"));
+                // Billing pide su propio token de servicio a Identity (ServiciosExternos) y lo manda en cada llamada
+                // del Saga. Aquí solo se conectan sus clientes a los cables que la prueba controla.
+                servicios.AddHttpClient(ServiciosExternos.Identity).ConfigurePrimaryHttpMessageHandler(() => IdentityDesdeBilling);
+                servicios.AddHttpClient(ServiciosExternos.Fleet).ConfigurePrimaryHttpMessageHandler(() => FleetDesdeBilling);
+
+                // Billing valida los JWT con el JWKS del Identity de la prueba (Trabajo 3, ADR 0004).
+                servicios.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
+                    o.ConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+                        "http://localhost/.well-known/jwks.json",
+                        new JwksBillingRetriever(),
+                        new HttpDocumentRetriever(new HttpClient(Identity.Server.CreateHandler())) { RequireHttps = false }));
             });
         });
 
@@ -181,6 +186,9 @@ public sealed class Ecosistema : IAsyncDisposable
             "billing", Acceso.SecretoBilling, "ecotrace-identity"));
         ecosistema.ClienteFleet.ConToken(await ecosistema.ClienteIdentity.TokenServicioAsync(
             "billing", Acceso.SecretoBilling, "ecotrace-fleet"));
+
+        // Billing con el administrador de la plataforma: crea y consulta pagos de cualquier organización.
+        ecosistema.ClienteBilling.ConToken(await ecosistema.Identity.CreateClient().TokenAdministradorAsync());
 
         return ecosistema;
     }

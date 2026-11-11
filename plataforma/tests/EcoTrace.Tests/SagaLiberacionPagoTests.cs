@@ -161,9 +161,10 @@ public sealed class SagaLiberacionPagoTests : IAsyncLifetime
         var envio = await _e.PrepararEnvioEnTransitoAsync();
         var pagoId = envio.PagoId!.Value;
 
-        // Identity atiende las dos primeras llamadas (autorizar y verificar) y cae justo después: antes de
-        // que haga falta revocar. Fleet además falla siempre, así que el Saga tiene que compensar.
-        _e.IdentityDesdeBilling.CaidoDesdeLlamada = 3;
+        // Identity atiende el pedido del token de servicio de Billing y las dos primeras llamadas del Saga
+        // (autorizar y verificar) y cae justo después: antes de que haga falta revocar. Fleet además falla
+        // siempre, así que el Saga tiene que compensar.
+        _e.IdentityDesdeBilling.CaidoDesdeLlamada = 4;
         _e.FallosDeFleet.Armar("liberaciones", 100);
 
         await _e.EntregarYProcesarAsync(envio);
