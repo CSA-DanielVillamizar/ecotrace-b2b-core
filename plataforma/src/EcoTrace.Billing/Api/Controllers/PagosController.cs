@@ -144,6 +144,63 @@ public sealed class PagosController(BillingDbContext db, TimeProvider reloj) : C
         return Ok(PagoDetalleResponse.De(pago).Auditoria);
     }
 
+    /// <summary>Registra evidencia de entrega desde la app móvil con idempotencia (ADR 0005).</summary>
+    [HttpPost("{id:guid}/evidencias")]
+    [Authorize(Policy = "Lectura")]
+    [ProducesResponseType<PagoDetalleResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<ActionResult<PagoDetalleResponse>> RegistrarEvidencia(
+        Guid id,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
+        RegistrarEvidenciaRequest solicitud,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Status = StatusCodes.Status400BadRequest,
+                Title = "Falta encabezado",
+                Detail = "Se requiere el encabezado Idempotency-Key."
+            });
+        }
+
+        var pago = await CargarAsync(id, tracking: true, ct);
+        if (!TieneAcceso(pago))
+        {
+            return Forbid();
+        }
+
+        // Idempotencia: si la operación ya se procesó, respondemos 200 con el estado actual sin duplicar efecto.
+        var operacionExistente = await db.OperacionesPago.FirstOrDefaultAsync(o => o.IdempotencyKey == idempotencyKey, ct);
+        if (operacionExistente is not null)
+        {
+            return Ok(PagoDetalleResponse.De(pago));
+        }
+
+        // Conflicto Tipo B: si el pago ya fue liberado o reembolsado mientras el dispositivo estaba offline.
+        if (pago.EstadoEscrow != EstadoEscrow.EnCustodia)
+        {
+            var conflicto = new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = "Conflicto de sincronización",
+                Detail = "El pago ya fue liberado por otro proceso."
+            };
+            conflicto.Extensions["tipoConflicto"] = "B";
+            return new ObjectResult(conflicto) { StatusCode = StatusCodes.Status409Conflict };
+        }
+
+        pago.RegistrarEvento($"Evidencia registrada: {solicitud.Evidencia}", reloj.GetUtcNow().UtcDateTime);
+        db.OperacionesPago.Add(OperacionPago.Registrar(pago.PagoId, idempotencyKey, "RegistrarEvidencia", reloj.GetUtcNow().UtcDateTime));
+        await db.GuardarAsync("No se pudo registrar la evidencia del pago.", ct);
+
+        return Ok(PagoDetalleResponse.De(pago));
+    }
+
     private Guid? ObtenerTenantId() =>
         Guid.TryParse(User.FindFirst("tenant_id")?.Value, out var tenantId) ? tenantId : null;
 

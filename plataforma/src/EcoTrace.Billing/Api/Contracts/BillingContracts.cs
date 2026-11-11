@@ -106,6 +106,12 @@ public sealed record SagaPasoResponse(
         new(p.Orden, p.Nombre, p.Compensable, p.Estado, p.Intentos, p.IntentosCompensacion, p.Detalle, p.ActualizadoEn);
 }
 
+public sealed record RegistrarEvidenciaRequest
+{
+    [Required]
+    public string Evidencia { get; init; } = string.Empty;
+}
+
 public sealed record SagaResponse(
     Guid SagaId, Guid PagoId, Guid CargaId, EstadoSaga Estado, string? Motivo, string CorrelationId,
     string EventoOrigen, DateTime CreadoEn, DateTime ActualizadoEn, DateTime ProximoIntentoEn,
