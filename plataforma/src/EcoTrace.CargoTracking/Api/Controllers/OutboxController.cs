@@ -1,6 +1,8 @@
 using EcoTrace.CargoTracking.Api.Contracts;
+using EcoTrace.CargoTracking.Api.Security;
 using EcoTrace.CargoTracking.Domain;
 using EcoTrace.CargoTracking.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,8 +11,15 @@ namespace EcoTrace.CargoTracking.Api.Controllers;
 /// <summary>
 /// Vista operativa del Outbox: qué mensajes esperan, cuáles se publicaron y cuáles quedaron en la
 /// cola de mensajes muertos. Es el procedimiento de reproceso que el ADR 0002 exige junto a la DLQ.
+/// <para>
+/// Es una ruta interna de la plataforma: solo la usa un servicio (rol <c>Servicio</c>), no un usuario final. El Outbox
+/// guarda eventos de todas las organizaciones y el token de una persona no dice si opera la plataforma, así que dejar
+/// que un administrador de una organización viera todos los mensajes rompería el aislamiento entre organizaciones.
+/// Pendiente: dar acceso a un administrador viendo solo los mensajes de su organización.
+/// </para>
 /// </summary>
 [ApiController]
+[Authorize(Roles = Roles.Servicio)]
 [Route("api/outbox")]
 [Produces("application/json")]
 public sealed class OutboxController(CargoTrackingDbContext db, TimeProvider reloj) : ControllerBase

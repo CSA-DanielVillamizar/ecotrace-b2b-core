@@ -6,7 +6,8 @@ namespace EcoTrace.Tests;
 public sealed class CargoTrackingApiTests(ApiFactory<CargoTrackingApiMarker> fabrica)
     : IClassFixture<ApiFactory<CargoTrackingApiMarker>>
 {
-    private readonly HttpClient _cliente = fabrica.CreateClient();
+    // Cargo exige un token: este cliente llama como la persona correcta para cada ruta (ver ActorAutomatico).
+    private readonly HttpClient _cliente = fabrica.CreateDefaultClient(new ActorAutomatico());
 
     private static object NuevaCarga(Guid generador, Guid transportista) => new
     {
