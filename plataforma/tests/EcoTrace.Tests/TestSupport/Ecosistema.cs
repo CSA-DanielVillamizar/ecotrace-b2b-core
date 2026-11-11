@@ -1,11 +1,16 @@
 using System.Collections.Concurrent;
 using System.Net;
 using EcoTrace.Billing.Api.Saga;
+using EcoTrace.Billing.Api.Seguridad;
 using EcoTrace.CargoTracking.Api.Outbox;
 using EcoTrace.FleetManagement.Api.Extensions;
+using EcoTrace.FleetManagement.Api.Seguridad;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Protocols;
+using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 
 namespace EcoTrace.Tests.TestSupport;
 
@@ -79,7 +84,13 @@ public sealed class Ecosistema : IAsyncDisposable
     private Ecosistema(OpcionesEcosistema opciones)
     {
         Identity = _identityBase;
-        Fleet = _fleetBase.WithWebHostBuilder(b => b.UseSetting("Simulacion:Habilitada", "true"));
+        Fleet = _fleetBase.WithWebHostBuilder(b =>
+        {
+            b.UseSetting("Simulacion:Habilitada", "true");
+            // Fleet valida los tokens con el JWKS del Identity de la prueba (Trabajo 3).
+            b.ConfigureTestServices(servicios =>
+                servicios.AddHttpClient(SeguridadFleet.ClienteJwks).ConfigurePrimaryHttpMessageHandler(() => Identity.Server.CreateHandler()));
+        });
 
         IdentityDesdeBilling = new EnlaceDeRed(() => Identity.Server.CreateHandler());
         FleetDesdeBilling = new EnlaceDeRed(() => Fleet.Server.CreateHandler());
@@ -93,8 +104,17 @@ public sealed class Ecosistema : IAsyncDisposable
             b.UseSetting("Resiliencia:Identity:TimeoutMs", opciones.TimeoutIdentityMs.ToString());
             b.ConfigureTestServices(servicios =>
             {
+                // Billing pide su propio token de servicio a Identity (ServiciosExternos) y lo manda en cada llamada
+                // del Saga. Aquí solo se conectan sus clientes a los cables que la prueba controla.
                 servicios.AddHttpClient(ServiciosExternos.Identity).ConfigurePrimaryHttpMessageHandler(() => IdentityDesdeBilling);
                 servicios.AddHttpClient(ServiciosExternos.Fleet).ConfigurePrimaryHttpMessageHandler(() => FleetDesdeBilling);
+
+                // Billing valida los JWT con el JWKS del Identity de la prueba (Trabajo 3, ADR 0004).
+                servicios.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
+                    o.ConfigurationManager = new ConfigurationManager<OpenIdConnectConfiguration>(
+                        "http://localhost/.well-known/jwks.json",
+                        new JwksBillingRetriever(),
+                        new HttpDocumentRetriever(new HttpClient(Identity.Server.CreateHandler())) { RequireHttps = false }));
             });
         });
 
@@ -108,8 +128,9 @@ public sealed class Ecosistema : IAsyncDisposable
         });
 
         ClienteIdentity = Identity.CreateClient();
+        ClienteIdentityComoBilling = Identity.CreateClient();
         ClienteFleet = Fleet.CreateClient();
-        ClienteCargo = Cargo.CreateClient();
+        ClienteCargo = Cargo.CreateDefaultClient(new ActorAutomatico());
         ClienteBilling = Billing.CreateClient();
     }
 
@@ -121,10 +142,19 @@ public sealed class Ecosistema : IAsyncDisposable
 
     public WebApplicationFactory<BillingApiMarker> Billing { get; }
 
+    /// <summary>Identity con token del administrador de la plataforma: crea organizaciones y usuarios, suspende.</summary>
     public HttpClient ClienteIdentity { get; }
 
+    /// <summary>Identity con token de servicio de Billing: el que usa las rutas internas (autorizaciones de pago).</summary>
+    public HttpClient ClienteIdentityComoBilling { get; }
+
+    /// <summary>Fleet con token de servicio de Billing: reserva, libera y consulta recursos como lo hace el Saga.</summary>
     public HttpClient ClienteFleet { get; }
 
+    /// <summary>
+    /// Llama a Cargo &amp; Tracking como la persona correcta para cada ruta (ver <see cref="ActorAutomatico"/>), porque Cargo
+    /// exige un token válido de la organización que corresponde.
+    /// </summary>
     public HttpClient ClienteCargo { get; }
 
     public HttpClient ClienteBilling { get; }
@@ -137,6 +167,9 @@ public sealed class Ecosistema : IAsyncDisposable
 
     /// <summary>Cable de Cargo &amp; Tracking hacia Billing (publicar EntregaConfirmada).</summary>
     public EnlaceDeRed BillingDesdeCargo { get; }
+
+    /// <summary>El Identity de mentira que Cargo consulta: su clave pública y los tokens de servicio que le entrega.</summary>
+    public IdentityFalso IdentityDeCargo => _cargoBase.IdentityDeMentira;
 
     public SimulacionFallos FallosDeFleet => Fleet.Services.GetRequiredService<SimulacionFallos>();
 
@@ -155,6 +188,15 @@ public sealed class Ecosistema : IAsyncDisposable
             (await cliente.GetAsync("/health")).EnsureSuccessStatusCode();
         }
 
+        ecosistema.ClienteIdentity.ConToken(await ecosistema.ClienteIdentity.TokenAdministradorAsync());
+        ecosistema.ClienteIdentityComoBilling.ConToken(await ecosistema.ClienteIdentityComoBilling.TokenServicioAsync(
+            "billing", Acceso.SecretoBilling, "ecotrace-identity"));
+        ecosistema.ClienteFleet.ConToken(await ecosistema.ClienteIdentity.TokenServicioAsync(
+            "billing", Acceso.SecretoBilling, "ecotrace-fleet"));
+
+        // Billing con el administrador de la plataforma: crea y consulta pagos de cualquier organización.
+        ecosistema.ClienteBilling.ConToken(await ecosistema.Identity.CreateClient().TokenAdministradorAsync());
+
         return ecosistema;
     }
 
@@ -167,21 +209,23 @@ public sealed class Ecosistema : IAsyncDisposable
         var sufijo = Guid.NewGuid().ToString("N");
         var generador = await ClienteIdentity.PostearAsync("/api/tenants", new { nombre = $"Generadora {sufijo[..6]}", tenantType = "Generador" });
         var transportista = await ClienteIdentity.PostearAsync("/api/tenants", new { nombre = $"Transportes {sufijo[..6]}", tenantType = "Transportista" });
-        var supervisor = await ClienteIdentity.PostearAsync("/api/users", new
+        var emailSupervisora = $"marta.{sufijo}@ejemplo.co";
+        await ClienteIdentity.PostearAsync("/api/users", new
         {
-            tenantId = transportista.Id("tenantId"), role = "Supervisor", nombre = "Marta Ríos", email = $"marta.{sufijo}@ejemplo.co"
+            tenantId = transportista.Id("tenantId"), role = "Supervisor", nombre = "Marta Ríos", email = emailSupervisora,
+            password = "Supervisora-2026"
         });
         var generadorId = generador.Id("tenantId");
         var transportistaId = transportista.Id("tenantId");
 
-        var vehiculo = await ClienteFleet.PostearAsync("/api/vehiculos", new
+        // La supervisora registra la flota con su propio token: Fleet toma la organización de ahí (Trabajo 3).
+        using var fleetSupervisora = Fleet.CreateClient().ConToken(await ClienteIdentity.TokenDeAsync(emailSupervisora, "Supervisora-2026"));
+        var vehiculo = await fleetSupervisora.PostearAsync("/api/vehiculos", new
         {
-            tenantId = transportistaId, registradoPorUserId = supervisor.Id("userId"),
             placa = $"T{sufijo[..6].ToUpperInvariant()}", capacidadKg = 5000
         });
-        var conductor = await ClienteFleet.PostearAsync("/api/conductores", new
+        var conductor = await fleetSupervisora.PostearAsync("/api/conductores", new
         {
-            tenantId = transportistaId, registradoPorUserId = supervisor.Id("userId"),
             nombre = "Carlos Ruiz", licencia = $"C2-{sufijo[6..12]}"
         });
 
@@ -258,7 +302,7 @@ public sealed class Ecosistema : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        foreach (var cliente in new[] { ClienteIdentity, ClienteFleet, ClienteCargo, ClienteBilling })
+        foreach (var cliente in new[] { ClienteIdentity, ClienteIdentityComoBilling, ClienteFleet, ClienteCargo, ClienteBilling })
         {
             cliente.Dispose();
         }

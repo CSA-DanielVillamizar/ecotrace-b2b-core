@@ -20,6 +20,15 @@
     <ProjectReference Include="..\..\src\EcoTrace.Billing\Api\EcoTrace.Billing.Api.csproj" />
   </ItemGroup>
 
+  <!--
+    Pruebas de punta a punta de la app contra los servicios reales en memoria: el motor y la cola del Mobile.Core,
+    y la logica del modulo Identity de la app (la misma fuente que compila la app, sin MAUI).
+  -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EcoTrace.Mobile.Core\EcoTrace.Mobile.Core.csproj" />
+    <Compile Include="..\..\src\EcoTrace.App\Modulos\Identity\Logica\*.cs" LinkBase="AppIdentityLogica" />
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>

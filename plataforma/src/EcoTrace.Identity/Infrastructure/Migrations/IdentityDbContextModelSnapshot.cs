@@ -49,6 +49,33 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                     b.ToTable("AutorizacionesPago", (string)null);
                 });
 
+            modelBuilder.Entity("EcoTrace.Identity.Domain.OperacionProcesada", b =>
+                {
+                    b.Property<Guid>("OperacionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ProcesadaEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Resultado")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("OperacionId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("OperacionesProcesadas", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.Identity.Domain.Role", b =>
                 {
                     b.Property<int>("RoleId")
@@ -196,9 +223,45 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                     b.ToTable("Tenants", (string)null);
                 });
 
+            modelBuilder.Entity("EcoTrace.Identity.Domain.TokenRefresco", b =>
+                {
+                    b.Property<Guid>("TokenRefrescoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiraEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("RevocadoEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("TokenRefrescoId");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("TokensRefresco", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.Identity.Domain.User", b =>
                 {
                     b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ContrasenaHash")
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("CreadoEn")
@@ -216,6 +279,10 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
 
                     b.Property<int>("RoleId")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("Telefono")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("TEXT");
@@ -241,11 +308,29 @@ namespace EcoTrace.Identity.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("EcoTrace.Identity.Domain.OperacionProcesada", b =>
+                {
+                    b.HasOne("EcoTrace.Identity.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("EcoTrace.Identity.Domain.RoleClaim", b =>
                 {
                     b.HasOne("EcoTrace.Identity.Domain.Role", null)
                         .WithMany("Claims")
                         .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EcoTrace.Identity.Domain.TokenRefresco", b =>
+                {
+                    b.HasOne("EcoTrace.Identity.Domain.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

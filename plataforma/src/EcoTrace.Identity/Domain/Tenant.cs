@@ -32,21 +32,36 @@ public sealed class Tenant
             throw DomainException.Validation("El nombre de la organización debe tener entre 2 y 120 caracteres.");
         }
 
-        if (!Enum.IsDefined(tenantType))
+        if (tenantType is not (TenantType.Generador or TenantType.Transportista))
         {
             throw DomainException.Validation("El tipo de organización debe ser Generador o Transportista.");
         }
 
-        return new Tenant
+        return Nueva(Guid.NewGuid(), limpio, tenantType, ahoraUtc);
+    }
+
+    /// <summary>La organización operadora de la plataforma. Solo la crea el sembrado inicial, con un id fijo de configuración.</summary>
+    public static Tenant CrearOperador(Guid tenantId, string nombre, DateTime ahoraUtc) =>
+        Nueva(tenantId, nombre.Trim(), TenantType.Operador, ahoraUtc);
+
+    /// <summary>Una organización con un id fijo de configuración (el dato conocido de producción del ADR 0006).</summary>
+    public static Tenant CrearConId(Guid tenantId, string nombre, TenantType tenantType, DateTime ahoraUtc)
+    {
+        var tenant = Crear(nombre, tenantType, ahoraUtc);
+        tenant.TenantId = tenantId;
+        return tenant;
+    }
+
+    private static Tenant Nueva(Guid tenantId, string nombre, TenantType tenantType, DateTime ahoraUtc) =>
+        new()
         {
-            TenantId = Guid.NewGuid(),
-            Nombre = limpio,
+            TenantId = tenantId,
+            Nombre = nombre,
             TenantType = tenantType,
             CreadoEn = ahoraUtc,
             Estado = EstadoTenant.Activo,
             Version = 1
         };
-    }
 
     /// <summary>Suspende la organización. Es idempotente: devuelve true solo si el estado cambió.</summary>
     public bool Suspender() => CambiarEstado(EstadoTenant.Suspendido);

@@ -19,32 +19,63 @@
 @cargaId = pegue-aqui-el-cargaId
 @pagoId = pegue-aqui-el-pagoId
 
+# Desde el Trabajo 3, las rutas de Identity piden token. Pegue aquí el accessToken de la petición 0.
+@tokenAdmin = pegue-aqui-el-accessToken-del-administrador
+
+
+### 0. Identity: sesión del administrador de la plataforma (credenciales de desarrollo)
+POST {{identity}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@ecotrace.local", "password": "EcoTrace-Admin-Dev-2026" }
 
 ### 1. Identity: organización generadora
 POST {{identity}}/api/tenants
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 { "nombre": "Generadora del Valle S.A.", "tenantType": "Generador" }
 
 ### 2. Identity: organización transportista
 POST {{identity}}/api/tenants
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 { "nombre": "Transportes del Cauca", "tenantType": "Transportista" }
 
-### 3. Identity: supervisor del transportista
+### 3. Identity: supervisor del transportista (con contraseña, para que pueda iniciar sesión)
 POST {{identity}}/api/users
+Authorization: Bearer {{tokenAdmin}}
 Content-Type: application/json
 
 {
   "tenantId": "{{transportistaId}}",
   "role": "Supervisor",
   "nombre": "Marta Ríos",
-  "email": "marta@transportescauca.co"
+  "email": "marta@transportescauca.co",
+  "password": "Marta-Rios-2026"
 }
 
 ### Identity: roles y permisos sembrados por la migración
 GET {{identity}}/api/roles
+
+### Identity: perfil del usuario del token (lo que la app guarda en caché)
+GET {{identity}}/api/perfil
+Authorization: Bearer {{tokenAdmin}}
+
+### Identity: cambio de perfil, como lo envía la app. Repetirla con la misma clave devuelve 200 con el resultado
+### de la primera vez sin aplicar nada; un teléfono inválido responde 400 con tipoConflicto "A".
+PUT {{identity}}/api/perfil
+Authorization: Bearer {{tokenAdmin}}
+Idempotency-Key: 3f2b8c1e-7d4a-4e5b-9c6d-1a2b3c4d5e6f
+Content-Type: application/json
+
+{ "nombre": "Administrador de la plataforma", "telefono": "+57 300 123 4567" }
+
+### Identity: cerrar sesión en los demás dispositivos (la sesión de este token sigue viva)
+POST {{identity}}/api/perfil/cierre-otras-sesiones
+Authorization: Bearer {{tokenAdmin}}
+Idempotency-Key: 9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d
 
 
 ### 4. Fleet Management: vehículo (solo recibe los identificadores de Identity)

@@ -22,6 +22,11 @@ services:
         DLL: EcoTrace.Identity.Api.dll
     ports: ["5101:8080"]
     volumes: ["identity-data:/app/App_Data"]
+    environment:
+      # Entorno de desarrollo: toma el emisor, los clientes de servicio y el administrador inicial de
+      # appsettings.Development.json y genera su clave de firma en el volumen. La producción simulada
+      # (ADR 0006) usa otra configuración, con la clave en Jwt__ClavePrivadaPem.
+      ASPNETCORE_ENVIRONMENT: Development
 
   fleet:
     <<: *servicio
@@ -59,6 +64,9 @@ services:
     ports: ["5104:8080"]
     volumes: ["billing-data:/app/App_Data"]
     environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      Jwt__Emisor: https://identity.ecotrace.local/desarrollo
+      Jwt__Audiencia: ecotrace-billing
       # Servicios que el Saga llama. Se resuelven por nombre dentro de la red de compose.
       Servicios__Identity__BaseUrl: http://identity:8080
       Servicios__Fleet__BaseUrl: http://fleet:8080

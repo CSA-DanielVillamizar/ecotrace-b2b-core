@@ -31,8 +31,13 @@ public sealed partial class Vehiculo
     [ReferenciaExterna("CargoTracking", "Carga para la que está reservado, mientras esté Reservado")]
     public Guid? ReservadoParaCargaId { get; private set; }
 
+    /// <summary>
+    /// Crea un vehículo disponible. El identificador se genera aquí, salvo para el vehículo conocido de
+    /// producción, que necesita uno fijo para la verificación del release (ADR 0006).
+    /// </summary>
     public static Vehiculo Crear(
-        Guid tenantId, Guid registradoPorUserId, string? placa, int capacidadKg, DateTime ahoraUtc)
+        Guid tenantId, Guid registradoPorUserId, string? placa, int capacidadKg, DateTime ahoraUtc,
+        Guid? vehiculoId = null)
     {
         if (tenantId == Guid.Empty)
         {
@@ -57,7 +62,7 @@ public sealed partial class Vehiculo
 
         return new Vehiculo
         {
-            VehiculoId = Guid.NewGuid(),
+            VehiculoId = vehiculoId ?? Guid.NewGuid(),
             TenantId = tenantId,
             RegistradoPorUserId = registradoPorUserId,
             Placa = placaNormalizada,

@@ -19,6 +19,10 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
 
     public DbSet<AutorizacionPago> AutorizacionesPago => Set<AutorizacionPago>();
 
+    public DbSet<TokenRefresco> TokensRefresco => Set<TokenRefresco>();
+
+    public DbSet<OperacionProcesada> OperacionesProcesadas => Set<OperacionProcesada>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();

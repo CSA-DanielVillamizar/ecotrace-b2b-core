@@ -16,6 +16,16 @@
     <ProjectReference Include="..\..\src\EcoTrace.Mobile.Core\EcoTrace.Mobile.Core.csproj" />
   </ItemGroup>
 
+  <!--
+    La logica de los modulos de la app (carpetas Logica, sin MAUI) se compila tambien aqui para probarla en cualquier
+    maquina, sin emulador. Es la misma fuente que compila la app: no hay una copia.
+  -->
+  <ItemGroup>
+    <Compile Include="..\..\src\EcoTrace.App\Modulos\Identity\Logica\*.cs" LinkBase="IdentityLogica" />
+    <Compile Include="..\..\src\EcoTrace.App\Modulos\Fleet\Logica\*.cs" LinkBase="FleetLogica" />
+    <Compile Include="..\..\src\EcoTrace.App\Modulos\Cargo\Logica\*.cs" LinkBase="CargoLogica" />
+  </ItemGroup>
+
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
