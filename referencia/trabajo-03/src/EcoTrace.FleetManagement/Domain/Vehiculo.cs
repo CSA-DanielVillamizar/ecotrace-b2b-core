@@ -1,0 +1,131 @@
+using System.Text.RegularExpressions;
+
+namespace EcoTrace.FleetManagement.Domain;
+
+/// <summary>Vehículo de un transportista (ADR 0001). Mismo criterio de referencias que Conductor.</summary>
+public sealed partial class Vehiculo
+{
+    public const int CapacidadMaximaKg = 80_000;
+
+    private Vehiculo()
+    {
+        Placa = string.Empty;
+    }
+
+    public Guid VehiculoId { get; private set; }
+
+    [ReferenciaExterna("Identity", "Transportista dueño de la flota")]
+    public Guid TenantId { get; private set; }
+
+    [ReferenciaExterna("Identity", "Usuario que registró el vehículo")]
+    public Guid RegistradoPorUserId { get; private set; }
+
+    public string Placa { get; private set; }
+
+    public int CapacidadKg { get; private set; }
+
+    public DateTime CreadoEn { get; private set; }
+
+    public EstadoRecurso Estado { get; private set; }
+
+    [ReferenciaExterna("CargoTracking", "Carga para la que está reservado, mientras esté Reservado")]
+    public Guid? ReservadoParaCargaId { get; private set; }
+
+    /// <summary>
+    /// Registra una novedad. La app la manda cuando recupera la señal, y mientras tanto el vehículo pudo reservarse para otra
+    /// carga: si es así, el servidor decidió (conflicto B) y la novedad no se acepta sobre una carga que ya no es la suya.
+    /// </summary>
+    public NovedadVehiculo ReportarNovedad(Guid cargaId, Guid reportadaPorUserId, string? descripcion, DateTime ahoraUtc)
+    {
+        if (Estado == EstadoRecurso.Reservado && ReservadoParaCargaId != cargaId)
+        {
+            throw DomainException.Conflict(
+                "El vehículo fue reservado para otra carga mientras no había conexión; esta novedad ya no corresponde.");
+        }
+
+        return NovedadVehiculo.Crear(VehiculoId, cargaId, reportadaPorUserId, descripcion, ahoraUtc);
+    }
+
+    public static Vehiculo Crear(
+        Guid tenantId, Guid registradoPorUserId, string? placa, int capacidadKg, DateTime ahoraUtc)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            throw DomainException.Validation("El TenantId del transportista es obligatorio.");
+        }
+
+        if (registradoPorUserId == Guid.Empty)
+        {
+            throw DomainException.Validation("El usuario que registra el vehículo es obligatorio.");
+        }
+
+        var placaNormalizada = (placa ?? string.Empty).Replace(" ", "").Replace("-", "").ToUpperInvariant();
+        if (!FormatoPlaca().IsMatch(placaNormalizada))
+        {
+            throw DomainException.Validation("La placa debe tener entre 5 y 8 letras o números.");
+        }
+
+        if (capacidadKg is < 1 or > CapacidadMaximaKg)
+        {
+            throw DomainException.Validation($"La capacidad debe estar entre 1 y {CapacidadMaximaKg:N0} kg.");
+        }
+
+        return new Vehiculo
+        {
+            VehiculoId = Guid.NewGuid(),
+            TenantId = tenantId,
+            RegistradoPorUserId = registradoPorUserId,
+            Placa = placaNormalizada,
+            CapacidadKg = capacidadKg,
+            CreadoEn = ahoraUtc,
+            Estado = EstadoRecurso.Disponible
+        };
+    }
+
+    /// <summary>
+    /// Reserva el vehículo para una carga. Es idempotente: repetir la reserva para la misma carga no
+    /// cambia nada. Devuelve true si el estado cambió. Si ya está reservado para otra carga, es un conflicto.
+    /// </summary>
+    public bool Reservar(Guid cargaId)
+    {
+        if (cargaId == Guid.Empty)
+        {
+            throw DomainException.Validation("La reserva necesita el identificador de la carga.");
+        }
+
+        if (Estado == EstadoRecurso.Reservado)
+        {
+            return ReservadoParaCargaId == cargaId
+                ? false
+                : throw DomainException.Conflict("El vehículo ya está reservado para otra carga.");
+        }
+
+        Estado = EstadoRecurso.Reservado;
+        ReservadoParaCargaId = cargaId;
+        return true;
+    }
+
+    /// <summary>
+    /// Libera el vehículo. Es idempotente: si ya estaba disponible no hace nada y devuelve false.
+    /// Si está reservado para otra carga, liberarlo desde esta sería un error: conflicto.
+    /// </summary>
+    public bool Liberar(Guid cargaId)
+    {
+        if (Estado == EstadoRecurso.Disponible)
+        {
+            return false;
+        }
+
+        if (ReservadoParaCargaId != cargaId)
+        {
+            throw DomainException.Conflict("El vehículo está reservado para otra carga y no se puede liberar desde esta.");
+        }
+
+        Estado = EstadoRecurso.Disponible;
+        ReservadoParaCargaId = null;
+        return true;
+    }
+
+    [GeneratedRegex("^[A-Z0-9]{5,8}$")]
+    private static partial Regex FormatoPlaca();
+}

@@ -1,0 +1,98 @@
+name: Referencia Trabajo 3
+
+# Compila y prueba la solución de referencia del Trabajo 3 y corre su verificación de release (ADR 0006).
+# Solo corre cuando cambia su carpeta. El job que compila y firma el APK es manual porque necesita el SDK de Android.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'referencia/trabajo-03/**'
+      - '.github/workflows/referencia-trabajo-03.yml'
+  pull_request:
+    paths:
+      - 'referencia/trabajo-03/**'
+      - '.github/workflows/referencia-trabajo-03.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: referencia/trabajo-03
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Compilar (las advertencias son errores)
+        run: dotnet build EcoTrace.sln --configuration Release --nologo
+
+      - name: Pruebas del Mobile.Core, de integración y de arquitectura
+        run: dotnet test EcoTrace.sln --configuration Release --no-build --nologo
+
+  verificacion-release:
+    needs: pruebas
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: referencia/trabajo-03
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Verificación de release, capa 1 y capa 2 contra la producción simulada
+        shell: pwsh
+        run: ./scripts/verificar-release.ps1 -LevantarProduccion
+
+  app-android:
+    if: github.event_name == 'workflow_dispatch'
+    needs: verificacion-release
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: referencia/trabajo-03
+    env:
+      # El keystore de Release y sus claves viven en los secretos del repositorio, nunca en el código.
+      KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Instalar el workload de MAUI para Android
+        run: dotnet workload install maui-android
+
+      - name: Preparar el keystore de Release
+        run: |
+          test -n "$KEYSTORE_BASE64" || { echo "Falta el secreto ANDROID_KEYSTORE_BASE64."; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+
+      - name: Compilar y firmar el APK de Release
+        run: >
+          dotnet publish src/EcoTrace.App/EcoTrace.App.csproj -f net8.0-android -c Release --nologo
+          -p:AndroidPackageFormat=apk
+          -p:AndroidKeyStore=true
+          -p:AndroidSigningKeyStore="$RUNNER_TEMP/release.keystore"
+          -p:AndroidSigningKeyAlias="$KEY_ALIAS"
+          -p:AndroidSigningKeyPass=env:KEYSTORE_PASSWORD
+          -p:AndroidSigningStorePass=env:KEYSTORE_PASSWORD
+
+      - name: Verificar la firma y que no sea de Debug
+        shell: pwsh
+        run: |
+          $apk = Get-ChildItem src/EcoTrace.App/bin/Release -Recurse -Filter '*-Signed.apk' | Select-Object -First 1
+          if (-not $apk) { throw 'No se generó un APK firmado.' }
+          ./scripts/verificar-release.ps1 -LevantarProduccion -Apk $apk.FullName

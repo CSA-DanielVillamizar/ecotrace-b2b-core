@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- El dominio no referencia paquetes ni otros proyectos: solo C# puro. -->
+
+</Project>

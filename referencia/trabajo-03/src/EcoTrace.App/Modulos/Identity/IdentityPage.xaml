@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:controles="clr-namespace:EcoTrace.App.Controles"
+             x:Class="EcoTrace.App.Modulos.Identity.IdentityPage"
+             Title="Perfil">
+    <ScrollView>
+        <VerticalStackLayout Spacing="0">
+            <controles:EncabezadoView Etiqueta="IDENTITY" Titulo="Tu sesión y tus datos"
+                                      Subtitulo="El token se guarda en SecureStorage, nunca en SQLite." />
+
+            <VerticalStackLayout Padding="16,18,16,24" Spacing="14">
+
+                <!-- Sin sesion: iniciar. El inicio de sesion necesita conexion y no se encola jamas. -->
+                <Border Style="{StaticResource Tarjeta}" IsVisible="{Binding SinSesion}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Inicia sesión" Style="{StaticResource Seccion}" />
+                        <Label Text="CORREO" Style="{StaticResource Etiqueta}" />
+                        <Entry Text="{Binding Correo}" Keyboard="Email" Placeholder="conductor@empresa.co" AutomationId="correo" />
+                        <Label Text="CONTRASEÑA" Style="{StaticResource Etiqueta}" />
+                        <Entry Text="{Binding Clave}" IsPassword="True" AutomationId="clave" />
+                        <Label Text="{Binding Error}" IsVisible="{Binding TieneError}" TextColor="{StaticResource ErrorTexto}" FontSize="14" />
+                        <Button Text="Iniciar sesión" Command="{Binding IniciarSesion}" Style="{StaticResource Primario}" AutomationId="iniciar" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Con sesion -->
+                <VerticalStackLayout Spacing="14" IsVisible="{Binding ConSesion}">
+                    <Border Style="{StaticResource Tarjeta}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="{Binding Quien}" FontAttributes="Bold" />
+                            <Border Padding="10,4" HorizontalOptions="Start" StrokeThickness="0" BackgroundColor="{Binding ModoFondo}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                                <Label Text="{Binding ModoTexto}" FontSize="12" FontAttributes="Bold" TextColor="{Binding ModoColor}" />
+                            </Border>
+                            <Label Text="{Binding ModoAyuda}" Style="{StaticResource Apoyo}" />
+                            <Button Text="Desbloquear con huella o PIN" Command="{Binding Desbloquear}" IsVisible="{Binding EsDegradada}"
+                                    Style="{StaticResource Primario}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Style="{StaticResource Tarjeta}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="Tu teléfono" Style="{StaticResource Seccion}" />
+                            <Label Text="Si no hay conexión, el cambio se guarda y se envía cuando vuelva." Style="{StaticResource Apoyo}" />
+                            <Entry Text="{Binding Telefono}" Keyboard="Telephone" Placeholder="+57 300 123 4567" AutomationId="telefono" />
+                            <Label Text="{Binding Mensaje}" IsVisible="{Binding TieneMensaje}" TextColor="{StaticResource InfoTexto}" FontSize="14" />
+                            <Button Text="Guardar teléfono" Command="{Binding GuardarTelefono}" Style="{StaticResource Primario}" AutomationId="guardar-telefono" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Button Text="Cerrar sesión" Command="{Binding CerrarSesion}" BackgroundColor="Transparent"
+                            TextColor="{StaticResource ErrorTexto}" BorderColor="{StaticResource ErrorTexto}" BorderWidth="1" />
+                </VerticalStackLayout>
+
+                <Label Text="Acciones de este módulo" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
+                <controles:ListaOperacionesView Modulo="Identity" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
