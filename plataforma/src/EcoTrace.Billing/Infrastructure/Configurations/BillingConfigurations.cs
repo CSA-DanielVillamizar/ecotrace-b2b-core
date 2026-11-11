@@ -140,3 +140,19 @@ internal sealed class EventoRecibidoConfiguration : IEntityTypeConfiguration<Eve
         builder.Property(e => e.RecibidoEn).IsRequired();
     }
 }
+
+internal sealed class OperacionPagoConfiguration : IEntityTypeConfiguration<OperacionPago>
+{
+    public void Configure(EntityTypeBuilder<OperacionPago> builder)
+    {
+        builder.ToTable("OperacionesPago");
+        builder.HasKey(o => o.OperacionPagoId);
+        builder.Property(o => o.OperacionPagoId).ValueGeneratedNever();
+        builder.Property(o => o.IdempotencyKey).HasMaxLength(64).IsRequired();
+        builder.Property(o => o.Operacion).HasMaxLength(40).IsRequired();
+        builder.Property(o => o.CreadaEn).IsRequired();
+
+        builder.HasIndex(o => o.IdempotencyKey).IsUnique();
+        builder.HasOne<Pago>().WithMany().HasForeignKey(o => o.PagoId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

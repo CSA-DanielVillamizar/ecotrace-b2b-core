@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" xmlns:controles="clr-namespace:EcoTrace.App.Controles"
+             x:Class="EcoTrace.App.Modulos.Fleet.FleetPage"
+             Title="Vehículo">
+    <ScrollView>
+        <VerticalStackLayout Spacing="0">
+            <controles:EncabezadoView Etiqueta="FLEET MANAGEMENT" Titulo="Tu vehículo y tu estado"
+                                      Subtitulo="Reporta novedades aunque no haya señal; se envían cuando vuelva." />
+
+            <VerticalStackLayout Padding="16,18,16,24" Spacing="14">
+                <!-- De cuándo son los datos y por qué se muestran guardados -->
+                <Label Text="{Binding Actualizado}" Style="{StaticResource Apoyo}" />
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource AdvertenciaFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneAviso}" Padding="14,10">
+                    <Label Text="{Binding Aviso}" TextColor="{StaticResource AdvertenciaTexto}" FontSize="14" />
+                </Border>
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource InfoFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneMensaje}" Padding="14,10">
+                    <Label Text="{Binding Mensaje}" TextColor="{StaticResource InfoTexto}" FontSize="14" />
+                </Border>
+
+                <Button Text="Actualizar" Command="{Binding Refrescar}" Style="{StaticResource Primario}" />
+
+                <Border Style="{StaticResource Tarjeta}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="Reportar una novedad" Style="{StaticResource Seccion}" />
+                        <Label Text="VEHÍCULO" Style="{StaticResource Etiqueta}" />
+                        <Picker ItemsSource="{Binding Vehiculos}" SelectedItem="{Binding Vehiculo}" ItemDisplayBinding="{Binding Placa}"
+                                Title="Elige el vehículo" />
+                        <Label Text="CARGA QUE LLEVABA" Style="{StaticResource Etiqueta}" />
+                        <Picker ItemsSource="{Binding Cargas}" SelectedItem="{Binding Carga}" ItemDisplayBinding="{Binding Descripcion}"
+                                Title="Elige la carga" />
+                        <Label Text="QUÉ PASÓ" Style="{StaticResource Etiqueta}" />
+                        <Editor Text="{Binding Descripcion}" Placeholder="Neumático delantero con desgaste" HeightRequest="90" AutoSize="Disabled" />
+                        <Button Text="Guardar novedad" Command="{Binding Reportar}" Style="{StaticResource Primario}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="Vehículos" Style="{StaticResource Seccion}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Vehiculos}" Spacing="10">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Tarjeta}">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <VerticalStackLayout>
+                                        <Label Text="{Binding Placa}" FontAttributes="Bold" />
+                                        <Label Text="{Binding CapacidadKg, StringFormat='{0:N0} kg de capacidad'}" Style="{StaticResource Apoyo}" />
+                                    </VerticalStackLayout>
+                                    <Label Grid.Column="1" Text="{Binding Estado}" Style="{StaticResource Apoyo}" VerticalOptions="Center" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Label Text="Acciones de este módulo" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
+                <controles:ListaOperacionesView Modulo="Fleet" />
+            </VerticalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

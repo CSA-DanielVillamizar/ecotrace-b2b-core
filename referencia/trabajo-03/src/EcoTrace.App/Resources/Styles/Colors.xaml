@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<?xaml-comp compile="true" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- Paleta de plataforma/docs/brand/README.md. Los contrastes ya estan medidos alla. -->
+    <Color x:Key="Ink">#16211E</Color>
+    <Color x:Key="Muted">#566764</Color>
+    <Color x:Key="Brand">#0F3D3E</Color>
+    <Color x:Key="BrandDeep">#0A2C2C</Color>
+    <Color x:Key="PetrolStrong">#0F5A73</Color>
+    <Color x:Key="Petrol">#1C7293</Color>
+    <Color x:Key="Amber">#F2A93B</Color>
+    <Color x:Key="LineStrong">#7C8D8A</Color>
+
+    <Color x:Key="Fondo">#F3F6F5</Color>
+    <Color x:Key="Superficie">#FFFFFF</Color>
+    <Color x:Key="LineaSuave">#DCE4E2</Color>
+    <Color x:Key="TextoSobreOscuro">#D6E4E1</Color>
+
+    <Color x:Key="CorrectoTexto">#1E6B3F</Color>
+    <Color x:Key="CorrectoFondo">#E7F3EB</Color>
+    <Color x:Key="ErrorTexto">#A83226</Color>
+    <Color x:Key="ErrorFondo">#FBEAE8</Color>
+    <Color x:Key="AdvertenciaTexto">#7A4B00</Color>
+    <Color x:Key="AdvertenciaFondo">#FFF3DC</Color>
+    <Color x:Key="InfoTexto">#0F5A73</Color>
+    <Color x:Key="InfoFondo">#E3F1F6</Color>
+    <Color x:Key="NeutroTexto">#3F4F4C</Color>
+    <Color x:Key="NeutroFondo">#ECEFEE</Color>
+
+</ResourceDictionary>

@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using EcoTrace.Billing.Api.Extensions;
@@ -30,6 +31,8 @@ public sealed class ServiciosExternos(
     public const string Fleet = "Fleet";
 
     private static readonly JsonSerializerOptions OpcionesJson = new(JsonSerializerDefaults.Web);
+    private readonly SemaphoreSlim _candado = new(1, 1);
+    private readonly Dictionary<string, (string Token, DateTime RenovarEn)> _tokens = new();
 
     public Task<RespuestaServicio> AutorizarPagoAsync(Guid pagoId, Guid tenantId, string correlationId, CancellationToken ct) =>
         EnviarAsync(Identity, HttpMethod.Post, "api/autorizaciones-pago", new { pagoId, tenantId }, correlationId, ct);
@@ -83,6 +86,10 @@ public sealed class ServiciosExternos(
 
         try
         {
+            var audiencia = servicio == Fleet ? "ecotrace-fleet" : "ecotrace-identity";
+            var token = await ObtenerTokenServicioAsync(audiencia, limite.Token);
+            solicitud.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
             using var respuesta = await clientes.CreateClient(servicio).SendAsync(solicitud, limite.Token);
             var texto = await respuesta.Content.ReadAsStringAsync(limite.Token);
             var json = LeerJson(texto);
@@ -106,6 +113,38 @@ public sealed class ServiciosExternos(
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
             return new RespuestaServicio(false, false, null, $"{servicio} no respondió en {tiempo.TotalMilliseconds:N0} ms.", null);
+        }
+    }
+
+    private async Task<string> ObtenerTokenServicioAsync(string audiencia, CancellationToken ct)
+    {
+        await _candado.WaitAsync(ct);
+        try
+        {
+            if (_tokens.TryGetValue(audiencia, out var guardado) && DateTime.UtcNow < guardado.RenovarEn)
+            {
+                return guardado.Token;
+            }
+
+            var respuesta = await clientes.CreateClient(Identity).PostAsJsonAsync("api/auth/token-servicio", new
+            {
+                clientId = configuracion["Identity:ClientId"],
+                clientSecret = configuracion["Identity:ClientSecret"],
+                audiencia
+            }, ct);
+
+            respuesta.EnsureSuccessStatusCode();
+
+            var cuerpo = await respuesta.Content.ReadFromJsonAsync<JsonElement>(ct);
+            var token = cuerpo.GetProperty("accessToken").GetString()!;
+            var expira = cuerpo.GetProperty("expiraEn").GetDateTime().ToUniversalTime();
+
+            _tokens[audiencia] = (token, expira.AddMinutes(-1));
+            return token;
+        }
+        finally
+        {
+            _candado.Release();
         }
     }
 

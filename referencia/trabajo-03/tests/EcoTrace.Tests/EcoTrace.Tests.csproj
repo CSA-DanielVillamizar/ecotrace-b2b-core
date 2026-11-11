@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <!-- Este es el unico proyecto que ve los cuatro modulos: los ejercita desde afuera, por HTTP. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\EcoTrace.Identity\Api\EcoTrace.Identity.Api.csproj" />
+    <ProjectReference Include="..\..\src\EcoTrace.FleetManagement\Api\EcoTrace.FleetManagement.Api.csproj" />
+    <ProjectReference Include="..\..\src\EcoTrace.CargoTracking\Api\EcoTrace.CargoTracking.Api.csproj" />
+    <ProjectReference Include="..\..\src\EcoTrace.Billing\Api\EcoTrace.Billing.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

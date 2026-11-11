@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controles="clr-namespace:EcoTrace.App.Controles"
+             x:Class="EcoTrace.App.Paginas.InicioPage"
+             Title="Inicio">
+    <ScrollView>
+        <VerticalStackLayout Spacing="0">
+
+            <!-- Franja de arriba: marca, saludo y estado de la conexion -->
+            <Border BackgroundColor="{StaticResource BrandDeep}" StrokeThickness="0" Padding="24,22,24,52">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="0,0,30,30" />
+                </Border.StrokeShape>
+                <VerticalStackLayout Spacing="6">
+                    <HorizontalStackLayout Spacing="8">
+                        <Border WidthRequest="12" HeightRequest="12" VerticalOptions="Center" StrokeThickness="0"
+                                BackgroundColor="{StaticResource Amber}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="6" />
+                            </Border.StrokeShape>
+                        </Border>
+                        <Label Text="ECOTRACE B2B" FontSize="12" FontAttributes="Bold" CharacterSpacing="2"
+                               TextColor="{StaticResource Amber}" />
+                    </HorizontalStackLayout>
+                    <Label Text="Hola, conductor" Style="{StaticResource Titulo}" Margin="0,6,0,0" />
+                    <Label Text="Lo que hagas queda guardado aunque no haya señal y se envía solo cuando vuelva."
+                           Style="{StaticResource Subtitulo}" />
+                    <HorizontalStackLayout Spacing="8" Margin="0,10,0,0">
+                        <Border Padding="12,5" StrokeThickness="0" BackgroundColor="{Binding ConexionFondo}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding ConexionTexto}" FontSize="12" FontAttributes="Bold"
+                                   TextColor="{Binding ConexionColor}" />
+                        </Border>
+                        <Border Padding="12,5" StrokeThickness="1" Stroke="#2F5A58" BackgroundColor="Transparent">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="12" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding EntornoTexto}" FontSize="12" TextColor="{StaticResource TextoSobreOscuro}" />
+                        </Border>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Tres numeros: lo que esta en cola, lo enviado y lo rechazado. Se montan sobre la franja. -->
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10" Margin="16,-34,16,0">
+                <Border Grid.Column="0" Style="{StaticResource Tarjeta}" Padding="14,12">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="{Binding EnCola}" FontSize="30" FontAttributes="Bold" TextColor="{StaticResource PetrolStrong}" />
+                        <Label Text="En cola" Style="{StaticResource Apoyo}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource Tarjeta}" Padding="14,12">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="{Binding Enviadas}" FontSize="30" FontAttributes="Bold" TextColor="{StaticResource CorrectoTexto}" />
+                        <Label Text="Enviadas" Style="{StaticResource Apoyo}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="2" Style="{StaticResource Tarjeta}" Padding="14,12">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="{Binding Rechazadas}" FontSize="30" FontAttributes="Bold" TextColor="{StaticResource ErrorTexto}" />
+                        <Label Text="Rechazadas" Style="{StaticResource Apoyo}" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <VerticalStackLayout Padding="16,18,16,24" Spacing="14">
+                <Button Text="{Binding BotonTexto}" Command="{Binding Sincronizar}" Style="{StaticResource Primario}" />
+
+                <Border Style="{StaticResource Tarjeta}" BackgroundColor="{StaticResource InfoFondo}" Stroke="Transparent"
+                        IsVisible="{Binding TieneMensaje}" Padding="14,10">
+                    <Label Text="{Binding Mensaje}" TextColor="{StaticResource InfoTexto}" FontSize="14" />
+                </Border>
+
+                <Label Text="Actividad reciente" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
+                <controles:ListaOperacionesView />
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

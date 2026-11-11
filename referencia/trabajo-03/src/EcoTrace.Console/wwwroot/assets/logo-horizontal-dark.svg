@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 196 48" role="img" aria-label="EcoTrace">
+  <title>EcoTrace</title>
+  <g transform="scale(0.75)">
+    <rect width="64" height="64" rx="14" fill="#F4F6F5"/>
+    <path d="M13 47C11 27 27 13 51 13c1 24-12 39-32 38-3 0-5-1.500-6-4z" fill="#F2A93B"/>
+    <path d="M17 47 30 33l9-7 9-9" fill="none" stroke="#0A2C2C" stroke-width="3.200" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="17" cy="47" r="3.400" fill="#0A2C2C"/>
+    <circle cx="30" cy="33" r="2.600" fill="#0A2C2C"/>
+    <circle cx="48" cy="17" r="3.400" fill="#0A2C2C"/>
+  </g>
+  <text x="58" y="33" font-family="Cambria, 'Iowan Old Style', 'Palatino Linotype', Georgia, serif" font-size="29" font-weight="700" fill="#FFFFFF">Eco<tspan fill="#F2A93B">Trace</tspan></text>
+</svg>
