@@ -5,6 +5,7 @@ using EcoTrace.Mobile.Core.Sincronizacion;
 
 namespace EcoTrace.App.Modulos.Cargo;
 
+/// <summary>Cómo terminó el intento de pedirle las cargas al servidor.</summary>
 public enum ResultadoConsulta
 {
     /// <summary>El servidor respondió con la lista de cargas.</summary>
@@ -23,19 +24,30 @@ public enum ResultadoConsulta
     Error = 5
 }
 
+/// <summary>Lo que devuelve el cliente: cómo terminó, las cargas (si salió bien) y un mensaje para el conductor (si salió mal).</summary>
 public sealed record RespuestaDeCargas(ResultadoConsulta Resultado, IReadOnlyList<CargaEnCache> Cargas, string Mensaje);
 
 /// <summary>
-/// Pide al servidor de Cargo &amp; Tracking la lista de cargas (<c>GET /api/cargas</c>). Solo lee: nunca cambia nada.
-/// El token lo da <see cref="IProveedorDeSesion"/>, que implementa el módulo de Identity; este módulo no guarda tokens
-/// por su cuenta (ADR 0004 y 0005).
+/// Le pide al servidor de Cargo la lista de cargas (<c>GET /api/cargas</c>). Solo lee: nunca cambia nada.
+/// <para>
+/// El token lo da <see cref="IProveedorDeSesion"/>, que implementa el módulo de Identity. Este módulo no guarda tokens por
+/// su cuenta (ADR 0004 y 0005). Sin token no se pregunta nada.
+/// </para>
 /// </summary>
+/// <param name="http">El cliente HTTP de la app.</param>
+/// <param name="servicios">Las direcciones de los servicios (de dónde sale la de Cargo).</param>
+/// <param name="sesion">De donde sale el token vigente.</param>
+/// <param name="reloj">El reloj, para poner la hora de la copia.</param>
 public sealed class ClienteDeCargas(
     HttpClient http, ConfiguracionServicios servicios, IProveedorDeSesion sesion, TimeProvider reloj)
 {
-    /// <summary>Tiempo máximo de la consulta. Pasado ese tiempo se trata como falta de conexión.</summary>
+    /// <summary>Cuánto se espera la respuesta. Pasado ese tiempo se trata como falta de conexión.</summary>
     public TimeSpan TiempoMaximo { get; init; } = TimeSpan.FromSeconds(10);
 
+    /// <summary>
+    /// Pide la lista de cargas al servidor con el token del conductor. Nunca lanza un error por falta de red: devuelve el
+    /// resultado (éxito, sin sesión, sin conexión...) para que la pantalla decida qué mostrar.
+    /// </summary>
     public async Task<RespuestaDeCargas> ObtenerAsync(CancellationToken ct = default)
     {
         var token = await sesion.ObtenerTokenVigenteAsync(ct);
@@ -83,9 +95,10 @@ public sealed class ClienteDeCargas(
         }
     }
 
+    /// <summary>Arma la respuesta para cuando algo salió mal (sin cargas y con un mensaje).</summary>
     private static RespuestaDeCargas Falla(ResultadoConsulta resultado, string mensaje) => new(resultado, [], mensaje);
 
-    /// <summary>Lee la lista que devuelve <c>GET /api/cargas</c>. Todas las cargas llevan la misma hora de actualización.</summary>
+    /// <summary>Convierte la lista que devolvió el servidor en cargas para guardar. Todas llevan la misma hora de actualización.</summary>
     private static List<CargaEnCache> Leer(string cuerpo, DateTime ahoraUtc)
     {
         using var documento = JsonDocument.Parse(cuerpo);

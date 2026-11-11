@@ -3,9 +3,13 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace EcoTrace.App.Modulos.Cargo;
 
+/// <summary>Conecta el módulo de Cargo con el resto de la app al arrancar.</summary>
 public static class RegistroCargo
 {
-    /// <summary>Registra el módulo, su pantalla y los servicios que solo este módulo necesita.</summary>
+    /// <summary>
+    /// Registra el módulo, su pantalla y todo lo que solo este módulo necesita: la copia de cargas en su archivo SQLite, el cliente
+    /// que pide las cargas, el servicio que arma la lista, las acciones del conductor y el ViewModel.
+    /// </summary>
     public static MauiAppBuilder AddModuloCargo(this MauiAppBuilder builder)
     {
         builder.Services.AddSingleton<ModuloCargo>();

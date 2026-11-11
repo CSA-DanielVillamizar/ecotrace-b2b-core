@@ -6,14 +6,15 @@ using EcoTrace.Mobile.Core.Sincronizacion;
 namespace EcoTrace.App.Modulos.Cargo;
 
 /// <summary>
-/// La pantalla de cargas. Sigue la regla de oro del ADR 0005, en este orden:
-/// (1) al abrir, pinta de inmediato lo guardado en el teléfono; (2) después intenta actualizar con el servidor;
-/// (3) cada acción del conductor se guarda en la cola y la pantalla cambia al instante, sin esperar la red.
-/// <para>
-/// Todo lo que decide algo (qué estado mostrar, qué botones, qué se puede encolar) está en
-/// <see cref="ServicioDeCargas"/> y <see cref="AccionesDeCarga"/>, que se prueban sin emulador. Esta clase solo conecta
-/// esas piezas con la pantalla.
-/// </para>
+/// El «cerebro» de la pantalla de cargas: conecta lo que ve el conductor con la lógica del módulo. Sigue la regla de oro del
+/// ADR 0005, en este orden:
+/// <list type="number">
+/// <item>Al abrir, pinta de inmediato lo guardado en el teléfono.</item>
+/// <item>Después intenta actualizar con el servidor.</item>
+/// <item>Cada acción del conductor se guarda en la cola y la pantalla cambia al instante, sin esperar la red.</item>
+/// </list>
+/// Todo lo que decide algo (qué estado mostrar, qué botones, qué se puede guardar) está en <see cref="ServicioDeCargas"/> y
+/// <see cref="AccionesDeCarga"/>, que se prueban sin emulador. Esta clase solo las conecta con la pantalla.
 /// </summary>
 public sealed class CargoViewModel : ObservableBase
 {
@@ -21,11 +22,19 @@ public sealed class CargoViewModel : ObservableBase
     private readonly AccionesDeCarga _acciones;
     private readonly IColaLocal _cola;
     private bool _cargando;
+    /// <summary>Si no hay ninguna carga que mostrar. Empieza en true hasta que llegue la primera lista.</summary>
     private bool _vacia = true;
+    /// <summary>El mensaje actual para el conductor. Vacío cuando no hay nada que avisar.</summary>
     private string _aviso = string.Empty;
+    /// <summary>Cuenta cada vez que se pide dibujar la lista, para descartar respuestas lentas que llegan tarde.</summary>
     private int _version;
+    /// <summary>Cuántas acciones rechazadas había la última vez que se miró, para actualizar solo cuando aparece una nueva.</summary>
     private int _rechazadasVistas = -1;
 
+    /// <summary>
+    /// Prepara la pantalla: crea el botón «Actualizar» y se suscribe a dos avisos: cuando cambia la cola (el conductor actuó o el
+    /// motor sincronizó algo) y cuando vuelve la conexión.
+    /// </summary>
     public CargoViewModel(
         ServicioDeCargas servicio, AccionesDeCarga acciones, IColaLocal cola, IConectividad conectividad)
     {
@@ -42,10 +51,13 @@ public sealed class CargoViewModel : ObservableBase
         conectividad.CambioDeConexion += AlCambiarLaConexion;
     }
 
+    /// <summary>Las cargas que se muestran. La pantalla se redibuja sola cuando esta lista cambia.</summary>
     public ObservableCollection<CargaFila> Cargas { get; } = [];
 
+    /// <summary>El botón «Actualizar»: pide la lista al servidor.</summary>
     public Command Actualizar { get; }
 
+    /// <summary>True mientras se está actualizando con el servidor. Mientras tanto el botón «Actualizar» queda desactivado.</summary>
     public bool Cargando
     {
         get => _cargando;
@@ -59,15 +71,17 @@ public sealed class CargoViewModel : ObservableBase
         }
     }
 
+    /// <summary>El texto del botón: «Actualizar», o «Actualizando…» mientras trabaja.</summary>
     public string BotonTexto => Cargando ? "Actualizando…" : "Actualizar";
 
-    /// <summary>True si no hay ninguna carga que mostrar (se explica en pantalla en vez de dejar un hueco).</summary>
+    /// <summary>True si no hay ninguna carga que mostrar. Así se explica en pantalla en vez de dejar un hueco.</summary>
     public bool Vacia
     {
         get => _vacia;
         private set => Asignar(ref _vacia, value);
     }
 
+    /// <summary>El mensaje para el conductor, por ejemplo por qué no se pudo actualizar. Vacío si no hay nada que avisar.</summary>
     public string Aviso
     {
         get => _aviso;
@@ -80,9 +94,12 @@ public sealed class CargoViewModel : ObservableBase
         }
     }
 
+    /// <summary>True si hay un mensaje que mostrar.</summary>
     public bool TieneAviso => Aviso.Length > 0;
 
-    /// <summary>Se llama al abrir la pantalla: primero lo guardado, después el servidor.</summary>
+    /// <summary>
+    /// Se llama al abrir la pantalla: primero muestra lo guardado en el teléfono y después intenta actualizar con el servidor.
+    /// </summary>
     public async Task CargarAsync()
     {
         // Se parte de los rechazos que ya existen, para que solo uno NUEVO dispare una actualización.
@@ -91,6 +108,7 @@ public sealed class CargoViewModel : ObservableBase
         await ActualizarAsync();
     }
 
+    /// <summary>Pide la lista al servidor y la muestra. Si falla, deja los datos guardados con un aviso.</summary>
     private async Task ActualizarAsync()
     {
         Cargando = true;
@@ -109,8 +127,8 @@ public sealed class CargoViewModel : ObservableBase
     }
 
     /// <summary>
-    /// Pide una vista y la dibuja. Si mientras tanto se pidió otra más reciente, descarta esta: así una respuesta lenta
-    /// no pisa a una más nueva.
+    /// Pide una vista de las cargas y la dibuja. Si mientras tanto se pidió otra más reciente, descarta esta: así una respuesta
+    /// lenta no pisa a una más nueva.
     /// </summary>
     private async Task MostrarAsync(Func<Task<VistaDeCargas>> obtener)
     {
@@ -136,8 +154,8 @@ public sealed class CargoViewModel : ObservableBase
     }
 
     /// <summary>
-    /// Qué pasa al tocar un botón. La entrega pide confirmación (no se puede deshacer) y la novedad pide la nota.
-    /// Después la acción se guarda en la cola: la pantalla se actualiza sola porque la cola avisa que cambió.
+    /// Qué pasa al tocar un botón. La entrega pide confirmación (no se puede deshacer) y la novedad pide la nota. Después la
+    /// acción se guarda en la cola, y la pantalla se actualiza sola porque la cola avisa que cambió.
     /// </summary>
     private async Task ElegirAccionAsync(CargaVista carga, string destino)
     {
@@ -171,6 +189,10 @@ public sealed class CargoViewModel : ObservableBase
         }
     }
 
+    /// <summary>
+    /// Se ejecuta cada vez que cambia la cola: vuelve a dibujar la lista desde la copia, sin usar la red. Si apareció un rechazo
+    /// nuevo, el estado real de la carga cambió en el servidor, así que actualiza una vez.
+    /// </summary>
     private async void AlCambiarLaCola(object? remitente, EventArgs e)
     {
         try
@@ -193,6 +215,7 @@ public sealed class CargoViewModel : ObservableBase
         }
     }
 
+    /// <summary>Se ejecuta cuando cambia la conexión. Si volvió, actualiza la lista con el servidor.</summary>
     private async void AlCambiarLaConexion(object? remitente, bool hayConexion)
     {
         if (!hayConexion)
@@ -210,8 +233,10 @@ public sealed class CargoViewModel : ObservableBase
         }
     }
 
+    /// <summary>La página que está a la vista, donde se muestran los cuadros de diálogo.</summary>
     private static Page? Pagina => Application.Current?.MainPage;
 
+    /// <summary>Muestra un cuadro para escribir la nota de una novedad. Devuelve null si el conductor cancela.</summary>
     private static async Task<string?> PedirNotaAsync() =>
         Pagina is { } pagina
             ? await MainThread.InvokeOnMainThreadAsync(() => pagina.DisplayPromptAsync(
@@ -219,11 +244,13 @@ public sealed class CargoViewModel : ObservableBase
                 maxLength: AccionesDeCarga.NotaMaxima, keyboard: Keyboard.Text))
             : null;
 
+    /// <summary>Pregunta «¿entregaste esta carga?» antes de confirmar la entrega, porque no se puede deshacer.</summary>
     private static async Task<bool> ConfirmarEntregaAsync(CargaVista carga) =>
         Pagina is { } pagina
         && await MainThread.InvokeOnMainThreadAsync(() => pagina.DisplayAlert(
             "Confirmar entrega", $"¿Entregaste «{carga.Descripcion}» en {carga.Destino}? Esto no se puede deshacer.", "Sí, entregada", "Todavía no"));
 
+    /// <summary>Muestra un mensaje al conductor en un cuadro de diálogo.</summary>
     private static async Task AvisarAsync(string mensaje)
     {
         if (Pagina is { } pagina)

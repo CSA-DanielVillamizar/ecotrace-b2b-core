@@ -12,20 +12,24 @@ using Microsoft.Extensions.Options;
 namespace EcoTrace.CargoTracking.Api.Controllers;
 
 /// <summary>
-/// Cargas y su seguimiento. Todas las rutas exigen un token válido (ADR 0004). Cada una, además, dice qué roles pueden usarla
-/// y de qué organización tienen que ser: la organización se lee <b>del token</b>, nunca de lo que mande el cliente.
+/// Las rutas para trabajar con cargas: crearlas, asignarles vehículo y conductor, registrar su seguimiento (incluida la
+/// entrega) y consultarlas.
+/// <para>
+/// Todas exigen un token válido (ADR 0004). Además, cada ruta dice qué roles pueden usarla y de qué organización tienen que
+/// ser. La organización se lee <b>siempre del token</b>, nunca de lo que mande el cliente.
+/// </para>
 /// <list type="bullet">
 /// <item>Quien crea la carga es de la organización generadora.</item>
 /// <item>Quien la asigna y quien registra su seguimiento (incluida la entrega) es de la organización transportista.</item>
-/// <item>Quien consulta una carga es de una de las dos organizaciones.</item>
+/// <item>Quien la consulta es de una de las dos organizaciones.</item>
 /// </list>
 /// Un token válido de otra organización recibe 403, y un rol sin permiso también.
 /// </summary>
+/// <param name="db">La base de datos de Cargo.</param>
+/// <param name="reloj">El reloj del servidor (las pruebas pueden cambiarlo).</param>
 /// <param name="opcionesJson">
-/// Las mismas opciones de JSON que usa la API para responder (nombres en camelCase y enums como texto).
-/// Se usan para guardar el resultado de una operación con exactamente la forma en que se le respondió al
-/// cliente, así una repetición devuelve lo mismo. Se escribe el nombre completo del tipo porque existe otro
-/// <c>JsonOptions</c> para endpoints mínimos y no debe confundirse.
+/// Las mismas opciones de JSON con las que la API responde (nombres en camelCase y estados escritos como texto). Sirven para
+/// guardar la respuesta de una operación exactamente como se le dio al cliente, y así devolverla igual si la operación se repite.
 /// </param>
 [ApiController]
 [Authorize]
@@ -37,14 +41,14 @@ public sealed class CargasController(
     IOptions<Microsoft.AspNetCore.Mvc.JsonOptions> opcionesJson) : ControllerBase
 {
     /// <summary>
-    /// Encabezado con el que la app manda el <c>OperationId</c> de la acción (ADR 0005). Lo agrega el motor de
-    /// sincronización del teléfono; un cliente que no lo manda (Swagger, la consola web) funciona como antes.
+    /// El nombre del encabezado donde la app manda el número de la operación (<c>OperationId</c>, ADR 0005). Lo agrega solo el
+    /// motor de sincronización del teléfono. Quien no lo manda (Swagger, la consola web) funciona como siempre.
     /// </summary>
     private const string EncabezadoIdempotencia = "Idempotency-Key";
 
     /// <summary>
-    /// Crea una carga en estado Pendiente, con generador y transportista. La crea alguien de la organización generadora:
-    /// la organización que dice el cuerpo tiene que ser la del token.
+    /// Crea una carga nueva, en estado Pendiente, con su organización generadora y su transportista. La crea alguien de la
+    /// organización generadora: la organización que dice el cuerpo tiene que ser la misma del token (si no, 403).
     /// </summary>
     [HttpPost]
     [Authorize(Roles = Roles.Supervisor + "," + Roles.Administrador)]
@@ -76,7 +80,8 @@ public sealed class CargasController(
 
     /// <summary>
     /// Lista las cargas de <b>la organización del token</b>, sea como generadora o como transportista. El filtro
-    /// <c>tenantId</c> se acepta solo si coincide con esa organización: nadie puede pedir las cargas de otra.
+    /// <c>tenantId</c> solo se acepta si es esa misma organización: nadie puede pedir las cargas de otra (403).
+    /// También se puede filtrar por estado.
     /// </summary>
     [HttpGet]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -104,7 +109,10 @@ public sealed class CargasController(
         return Ok(respuesta);
     }
 
-    /// <summary>Devuelve la carga con su asignación y su línea de seguimiento, si quien pregunta es de una de sus dos organizaciones.</summary>
+    /// <summary>
+    /// Devuelve una carga con su asignación y su línea de seguimiento. Solo si quien pregunta es de una de las dos
+    /// organizaciones de la carga (si no, 403). Si la carga no existe, 404.
+    /// </summary>
     [HttpGet("{id:guid}")]
     [ProducesResponseType<CargaDetalleResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -120,7 +128,10 @@ public sealed class CargasController(
         return CargaDetalleResponse.De(carga);
     }
 
-    /// <summary>Asigna vehículo y conductor (identificadores de Fleet Management). Solo desde Pendiente, y solo la organización transportista.</summary>
+    /// <summary>
+    /// Le asigna a la carga un vehículo y un conductor (identificadores de Fleet Management). Solo se puede desde Pendiente y
+    /// una sola vez, y solo la organización transportista de esa carga.
+    /// </summary>
     [HttpPost("{id:guid}/asignacion")]
     [Authorize(Roles = Roles.Supervisor + "," + Roles.Administrador)]
     [ProducesResponseType<CargaDetalleResponse>(StatusCodes.Status201Created)]
@@ -143,22 +154,21 @@ public sealed class CargasController(
     }
 
     /// <summary>
-    /// Registra un evento de seguimiento y actualiza el estado de la carga. Lo hace un Conductor o un Supervisor de la
-    /// organización transportista de esa carga. Es la ruta con la que se confirma una entrega, la operación más crítica:
+    /// Registra un cambio de estado de la carga (en tránsito, con novedad, entregada). Lo hace un Conductor o un Supervisor de
+    /// la organización transportista de esa carga. Con el estado Entregado se confirma la entrega, la operación más crítica:
     /// de ahí arranca el Saga que libera el pago.
     /// <para>
-    /// Es idempotente (ADR 0005, Trabajo 3). Si llega el encabezado <c>Idempotency-Key</c>:
+    /// Es idempotente (ADR 0005): repetirla con el mismo número no repite el efecto. Si llega el encabezado
+    /// <c>Idempotency-Key</c>:
     /// </para>
     /// <list type="bullet">
-    /// <item>La primera vez se procesa normal y responde <b>201</b>. Junto con el cambio se guarda un
-    /// registro de la operación, en la misma transacción.</item>
-    /// <item>Si la misma clave llega otra vez (un reintento tras cortarse la red), responde <b>200</b> con
-    /// el resultado de la primera vez y no hace nada más: no crea otro seguimiento y, sobre todo, no crea
-    /// otro mensaje en el Outbox, así que el Saga de pago no se dispara dos veces.</item>
+    /// <item>La primera vez se procesa normal y responde <b>201</b>. Junto con el cambio se guarda un apunte de la operación,
+    /// en la misma transacción.</item>
+    /// <item>Si el mismo número llega otra vez (por ejemplo, un reintento después de cortarse la señal), responde <b>200</b>
+    /// con la respuesta de la primera vez y no hace nada más: no crea otro seguimiento ni otro mensaje para Billing, así que
+    /// el pago no se dispara dos veces.</item>
     /// </list>
-    /// <para>
-    /// Sin el encabezado funciona como antes: un "Entregado" repetido responde 409.
-    /// </para>
+    /// Sin el encabezado funciona como antes: una entrega repetida responde 409.
     /// </summary>
     [HttpPost("{id:guid}/seguimientos")]
     [Authorize(Roles = Roles.Conductor + "," + Roles.Supervisor)]
@@ -174,12 +184,12 @@ public sealed class CargasController(
         [FromHeader(Name = EncabezadoIdempotencia)] string? claveIdempotencia,
         CancellationToken ct)
     {
-        // 1. Se lee la clave antes de tocar nada. Si viene mal formada se rechaza con 400 (tipo A).
+        // PASO 1. Se lee el número de la operación (Idempotency-Key) antes de hacer nada. Si viene mal escrito, se rechaza con 400.
         var operacionId = LeerClaveDeIdempotencia(claveIdempotencia);
 
-        // 2. ¿Esta operación ya se procesó? Entonces no se repite nada: se devuelve el resultado anterior.
-        //    Esto va antes de cargar la carga a propósito: aunque la carga ya haya cambiado de estado
-        //    (por ejemplo, está Entregada), el reintento de una acción que SÍ se hizo recibe su 200 y no un 409.
+        // PASO 2. ¿Esta operación ya se procesó? Entonces no se repite nada: se devuelve la respuesta de la primera vez.
+        //    Esto va antes de mirar la carga a propósito: aunque la carga ya esté Entregada, quien reintenta una acción
+        //    que SÍ se hizo recibe su 200 y no un 409.
         if (operacionId is { } clave)
         {
             var previa = await db.OperacionesProcesadas
@@ -192,8 +202,8 @@ public sealed class CargasController(
             }
         }
 
-        // 3. Primera vez que llega esta operación: se procesa igual que siempre. Todo el bloque va dentro del
-        //    try porque un reintento puede chocar en cualquier punto de él (ver el catch más abajo).
+        // PASO 3. Es la primera vez que llega esta operación: se procesa normal. Todo va dentro de un try porque un
+        //    reintento puede chocar en cualquier punto (ver el catch al final).
         try
         {
             var carga = await CargarAsync(id, tracking: true, ct);
@@ -207,8 +217,8 @@ public sealed class CargasController(
             var ahora = reloj.GetUtcNow().UtcDateTime;
             carga.RegistrarSeguimiento(solicitud.Estado!.Value, solicitud.Ubicacion, solicitud.Nota, ahora);
 
-            // Transactional Outbox (ADR 0002): el evento se guarda en la misma transaccion que el cambio
-            // de estado. Si la entrega queda registrada, el evento tambien; si no, ninguno de los dos.
+            // Si se entregó, se guarda también el mensaje para Billing (el Outbox, ADR 0002) en la MISMA transacción
+            // que el cambio de estado: quedan guardados los dos o ninguno.
             if (carga.Estado == EstadoCarga.Entregado)
             {
                 db.Outbox.Add(OutboxMensaje.EntregaConfirmada(carga, HttpContext.CorrelationId(), ahora));
@@ -216,8 +226,8 @@ public sealed class CargasController(
 
             var respuesta = CargaDetalleResponse.De(carga);
 
-            // 4. Se anota la operación como procesada, con la respuesta que se va a dar, en la MISMA
-            //    transacción que el cambio y el Outbox. Los tres quedan guardados juntos o ninguno.
+            // PASO 4. Se anota la operación como procesada (con la respuesta que se va a dar) en la misma transacción.
+            //    Así el cambio, el mensaje para Billing y el apunte se guardan juntos o ninguno.
             if (operacionId is { } claveNueva)
             {
                 var resultado = JsonSerializer.Serialize(respuesta, opcionesJson.Value.JsonSerializerOptions);
@@ -230,12 +240,10 @@ public sealed class CargasController(
         }
         catch (DomainException conflicto) when (conflicto.Kind == DomainErrorKind.Conflict && operacionId is not null)
         {
-            // Caso de carrera: llegó otra solicitud con la MISMA clave casi al mismo tiempo y terminó antes.
-            // Se nota en uno de dos momentos. O al evaluar la transición, porque la carga ya aparece como
-            // Entregada y el dominio lanza el conflicto. O al guardar, porque la base de datos deja pasar
-            // solo una (la clave primaria es el OperationId y el estado de la carga es un token de
-            // concurrencia). En ambos casos, si esta perdedora era un reintento, la operación SÍ se hizo, así
-            // que se le responde con ese resultado (200) y no con un 409 que la app tomaría por un rechazo.
+            // Caso raro: llegó OTRA solicitud con el MISMO número casi al mismo tiempo y terminó primero.
+            // Se nota en uno de dos momentos: al revisar el estado (la carga ya aparece entregada) o al guardar (la base
+            // de datos solo deja pasar una). Si esta solicitud era un reintento, la operación SÍ se hizo: se le responde
+            // 200 con el resultado, y no un 409 que la app tomaría por un rechazo.
             db.ChangeTracker.Clear();
             var ganadora = await db.OperacionesProcesadas
                 .AsNoTracking()
@@ -243,8 +251,8 @@ public sealed class CargasController(
 
             if (ganadora is null)
             {
-                // El conflicto no venía de una clave repetida (por ejemplo, la carga ya estaba entregada por
-                // otra operación con otra clave): es un conflicto real y se informa como tal.
+                // El conflicto NO venía de un número repetido (por ejemplo, otra operación con otro número ya entregó
+                // la carga): es un conflicto de verdad y se informa como tal.
                 throw;
             }
 
@@ -252,7 +260,10 @@ public sealed class CargasController(
         }
     }
 
-    /// <summary>Línea de tiempo de la carga, del evento más antiguo al más reciente, para quien sea de una de sus dos organizaciones.</summary>
+    /// <summary>
+    /// Devuelve la línea de tiempo de la carga, del evento más antiguo al más reciente. Solo para quien sea de una de las
+    /// dos organizaciones de la carga (si no, 403).
+    /// </summary>
     [HttpGet("{id:guid}/seguimientos")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -268,6 +279,7 @@ public sealed class CargasController(
         return Ok(CargaDetalleResponse.De(carga).Seguimientos);
     }
 
+    /// <summary>Busca la carga con su asignación y sus seguimientos. Si no existe, lanza un error que se convierte en 404.</summary>
     private async Task<Carga> CargarAsync(Guid id, bool tracking, CancellationToken ct)
     {
         var consulta = db.Cargas.Include(c => c.Asignacion).Include(c => c.Seguimientos).AsQueryable();
@@ -280,14 +292,13 @@ public sealed class CargasController(
             ?? throw DomainException.NotFound("No existe una carga con ese identificador.");
     }
 
-    /// <summary>True si quien llama es de la organización generadora o de la transportista de esta carga.</summary>
+    /// <summary>Dice si quien llama es de la organización generadora o de la transportista de esta carga.</summary>
     private bool EsDeLaCarga(Carga carga) =>
         User.PerteneceA(carga.GeneradorTenantId, carga.TransportistaTenantId);
 
     /// <summary>
-    /// Convierte el encabezado <c>Idempotency-Key</c> en un identificador. Devuelve null si el encabezado no
-    /// vino (el cliente no pidió idempotencia). El <c>OperationId</c> es un Guid generado en el teléfono, así
-    /// que cualquier otro valor se rechaza con 400 en lugar de aceptarse y guardarse sin sentido.
+    /// Lee el número de la operación que llega en <c>Idempotency-Key</c>. Si el encabezado no vino, devuelve null (el cliente
+    /// no pidió idempotencia). El número es un Guid inventado por el teléfono, así que cualquier otro valor se rechaza con 400.
     /// </summary>
     private static Guid? LeerClaveDeIdempotencia(string? encabezado)
     {
@@ -305,20 +316,21 @@ public sealed class CargasController(
     }
 
     /// <summary>
-    /// Respuesta para una operación que ya se había procesado: 200 con el JSON de la primera vez, tal cual
-    /// se guardó. El 200 (en vez del 201 de la primera vez) es la señal de "ya estaba hecho".
+    /// Arma la respuesta para una operación que ya se había procesado: 200 con la respuesta de la primera vez, tal como se
+    /// guardó. El 200 (y no el 201 de la primera vez) es la señal de «esto ya estaba hecho». Rechaza si el número se usó en
+    /// otra carga (400) o si quien pregunta no es de la organización transportista (403).
     /// </summary>
     private async Task<ActionResult> RespuestaDeOperacionRepetidaAsync(OperacionProcesada previa, Guid cargaId, CancellationToken ct)
     {
-        // Una misma clave no puede servir para dos cargas distintas: sería un error del cliente y devolver
-        // el resultado de otra carga mostraría datos que no corresponden.
+        // Un mismo número no puede servir para dos cargas distintas: sería un error del cliente, y devolver el
+        // resultado de otra carga mostraría datos que no corresponden.
         if (previa.CargaId != cargaId)
         {
             throw DomainException.Validation("La clave de idempotencia ya se usó con otra carga.");
         }
 
-        // El resultado guardado trae los datos de la carga, así que repetir la operación tampoco se salta la regla de
-        // organización: solo la transportista de esa carga recibe su resultado. Si no, bastaría con adivinar una clave.
+        // El resultado guardado trae datos de la carga, así que repetir la operación tampoco se salta la regla de
+        // organización: solo la transportista de esa carga recibe su resultado. Si no, bastaría con adivinar un número.
         var transportista = await db.Cargas.AsNoTracking()
             .Where(c => c.CargaId == previa.CargaId)
             .Select(c => c.TransportistaTenantId)

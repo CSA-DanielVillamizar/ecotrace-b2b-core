@@ -4,28 +4,37 @@ using EcoTrace.Mobile.Core.Sincronizacion;
 namespace EcoTrace.App.Modulos.Cargo;
 
 /// <summary>
-/// Arma la lista de cargas que ve el conductor, con la regla de oro del ADR 0005: <b>local primero, servidor
-/// después, nunca en silencio</b>.
+/// Arma la lista de cargas que ve el conductor, con la regla de oro del ADR 0005: <b>local primero, servidor después, nunca
+/// en silencio</b>.
 /// <list type="bullet">
-/// <item>Con conexión, pide las cargas al servidor y las guarda en la caché. Sin conexión (o si el servidor no
-/// responde), muestra la caché con un aviso.</item>
-/// <item>Encima de lo que dice el servidor se pone lo que el conductor ya hizo y todavía no se envió, tomado de la
-/// cola. Así la pantalla cambia al instante y nunca tiene que esperar al servidor.</item>
+/// <item>Con conexión, pide las cargas al servidor y las guarda en la copia. Sin conexión (o si el servidor no responde),
+/// muestra la copia con un aviso.</item>
+/// <item>Encima de lo que dice el servidor pone lo que el conductor ya hizo y todavía no se envió (lo lee de la cola). Así la
+/// pantalla cambia al instante y nunca espera al servidor.</item>
 /// </list>
 /// </summary>
+/// <param name="cliente">Pide las cargas al servidor.</param>
+/// <param name="cache">La copia de las cargas en el teléfono.</param>
+/// <param name="cola">La cola de acciones pendientes.</param>
+/// <param name="conectividad">Dice si hay conexión.</param>
+/// <param name="reloj">El reloj.</param>
 public sealed class ServicioDeCargas(
     ClienteDeCargas cliente, ICacheDeCargas cache, IColaLocal cola, IConectividad conectividad, TimeProvider reloj)
 {
-    /// <summary>Nombre del módulo en la cola local. Debe coincidir con <c>ModuloCargo.Nombre</c>.</summary>
+    /// <summary>El nombre del módulo en la cola local. Debe coincidir con el nombre de <c>ModuloCargo</c>.</summary>
     public const string Modulo = "Cargo";
 
+    /// <summary>Los dos tipos de acción de este módulo, para reconocerlas en la cola.</summary>
     private static readonly string[] TiposDeAccion = ["CambiarEstado", "ConfirmarEntrega"];
 
     /// <summary>La lista tal como está en el teléfono, sin tocar la red. Es lo primero que se pinta al abrir la pantalla.</summary>
     public Task<VistaDeCargas> ObtenerDeCacheAsync(CancellationToken ct = default) =>
         ArmarAsync(sonDatosGuardados: true, aviso: string.Empty, ct);
 
-    /// <summary>Pide la lista al servidor y actualiza la caché. Si no puede, devuelve la caché con un aviso que explica por qué.</summary>
+    /// <summary>
+    /// Pide la lista al servidor y actualiza la copia. Si no puede (sin conexión, sin sesión o servidor caído), devuelve la copia
+    /// con un aviso que explica por qué.
+    /// </summary>
     public async Task<VistaDeCargas> RefrescarAsync(CancellationToken ct = default)
     {
         if (!conectividad.HayConexion)
@@ -47,6 +56,7 @@ public sealed class ServicioDeCargas(
         return await ArmarAsync(false, string.Empty, ct);
     }
 
+    /// <summary>Arma lo que se va a dibujar: la copia de las cargas más lo que hay pendiente en la cola.</summary>
     private async Task<VistaDeCargas> ArmarAsync(bool sonDatosGuardados, string aviso, CancellationToken ct)
     {
         var cargas = await cache.ListarAsync(ct);
@@ -64,8 +74,8 @@ public sealed class ServicioDeCargas(
     }
 
     /// <summary>
-    /// De todas las acciones de la cola, la más reciente de cada carga. Las operaciones llegan ordenadas por
-    /// secuencia, así que la última que se lee de una carga es la que cuenta.
+    /// De todas las acciones de la cola, deja la más reciente de cada carga. Las acciones llegan ordenadas, así que la última que
+    /// se lee de una carga es la que cuenta.
     /// </summary>
     private static Dictionary<Guid, AccionDeCarga> UltimaAccionPorCarga(IReadOnlyList<OperacionPendiente> operaciones)
     {
@@ -83,6 +93,10 @@ public sealed class ServicioDeCargas(
         return porCarga;
     }
 
+    /// <summary>
+    /// Arma la fila de una carga. Si la última acción está pendiente, muestra su estado; si el servidor la rechazó, muestra el
+    /// motivo; si ya se envió y la copia es más vieja, confía en la acción hasta el próximo refresco.
+    /// </summary>
     private static CargaVista Fila(CargaEnCache carga, AccionDeCarga? ultima)
     {
         var estadoMostrado = carga.Estado;
@@ -130,5 +144,6 @@ public sealed class ServicioDeCargas(
             EstadosDeCarga.SiguientesPermitidos(estadoMostrado));
     }
 
+    /// <summary>Una acción de la cola junto con sus datos ya leídos.</summary>
     private sealed record AccionDeCarga(OperacionPendiente Operacion, DatosCambioDeEstado Datos);
 }

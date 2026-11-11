@@ -7,7 +7,7 @@ namespace EcoTrace.Tests.TestSupport;
 
 /// <summary>
 /// Un cliente HTTP que llama a Cargo &amp; Tracking como <b>la persona correcta para cada ruta</b>, para que las pruebas que
-/// no tratan de seguridad no tengan que armar tokens a mano:
+/// no tratan de seguridad no tengan que fabricar tokens a mano:
 /// <list type="bullet">
 /// <item>Crear una carga: un supervisor de la organización generadora (la que dice el cuerpo).</item>
 /// <item>Asignarla o consultarla: un supervisor de la organización transportista de esa carga.</item>
@@ -19,11 +19,14 @@ namespace EcoTrace.Tests.TestSupport;
 /// </summary>
 public sealed class ActorAutomatico : DelegatingHandler
 {
+    /// <summary>Reconoce las rutas de una carga, como <c>/api/cargas/{id}/seguimientos</c>, y separa el identificador y el recurso.</summary>
     private static readonly Regex RutaDeCarga = new(
         @"^/api/cargas/(?<id>[0-9a-fA-F\-]{36})(?<recurso>/[a-z]+)?$", RegexOptions.Compiled);
 
+    /// <summary>Qué organización transporta cada carga que se creó por este cliente.</summary>
     private readonly ConcurrentDictionary<Guid, Guid> _transportistaDe = new();
 
+    /// <summary>Antes de enviar cada llamada le pone el token de la persona correcta, y al ver crearse una carga anota quién la transporta.</summary>
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage solicitud, CancellationToken ct)
     {
         var ruta = solicitud.RequestUri?.AbsolutePath ?? string.Empty;
@@ -55,6 +58,7 @@ public sealed class ActorAutomatico : DelegatingHandler
         return respuesta;
     }
 
+    /// <summary>Decide qué persona (rol y organización) debe llamar a cada ruta y fabrica su token. Devuelve null para las rutas públicas.</summary>
     private string? TokenPara(HttpRequestMessage solicitud, string ruta, Guid? generador)
     {
         if (ruta.StartsWith("/api/outbox", StringComparison.Ordinal))
@@ -84,6 +88,7 @@ public sealed class ActorAutomatico : DelegatingHandler
         return SeguridadDePrueba.Emitir(registraSeguimiento ? Rol.Conductor : Rol.Supervisor, transportista);
     }
 
+    /// <summary>Lee del cuerpo de «crear carga» las dos organizaciones. Si el cuerpo está mal, devuelve vacíos.</summary>
     private static (Guid? Generador, Guid? Transportista) LeerOrganizaciones(string cuerpo)
     {
         try
@@ -97,6 +102,7 @@ public sealed class ActorAutomatico : DelegatingHandler
         }
     }
 
+    /// <summary>Lee una organización de un campo del cuerpo, o null si falta o no es un identificador.</summary>
     private static Guid? Organizacion(JsonElement cuerpo, string propiedad) =>
         cuerpo.ValueKind == JsonValueKind.Object
         && cuerpo.TryGetProperty(propiedad, out var valor)
@@ -105,6 +111,7 @@ public sealed class ActorAutomatico : DelegatingHandler
             ? id
             : null;
 
+    /// <summary>Lee el filtro <c>tenantId</c> de la dirección, si lo trae.</summary>
     private static Guid? TenantDeLaConsulta(Uri direccion)
     {
         foreach (var par in direccion.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))

@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!--
+  La pantalla de cargas del conductor. De arriba hacia abajo: el encabezado, el botón «Actualizar», un aviso (si lo hay),
+  un mensaje si no hay cargas, la lista de cargas (cada una con su estado, sus botones y su rechazo, si lo tuvo) y, al final,
+  las acciones de este módulo con su estado en la cola. El banner de «Sin conexión» no está aquí: lo pone la plantilla de la app.
+-->
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controles="clr-namespace:EcoTrace.App.Controles"
@@ -30,6 +35,7 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- La lista de cargas: una tarjeta por carga. -->
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Cargas}" Spacing="12">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
@@ -68,6 +74,7 @@
                                             </VerticalStackLayout>
                                         </Border>
 
+                                        <!-- Los botones de esta carga (por ejemplo «Confirmar entrega»). Cada uno guarda la acción en la cola. -->
                                         <FlexLayout BindableLayout.ItemsSource="{Binding Acciones}" Wrap="Wrap"
                                                     IsVisible="{Binding TieneAcciones}" Margin="0,4,0,0">
                                             <BindableLayout.ItemTemplate>
@@ -86,6 +93,7 @@
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
+                <!-- La cola de este módulo: cada acción guardada con su estado (pendiente, sincronizada o rechazada). -->
                 <Label Text="Acciones de este módulo" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
                 <controles:ListaOperacionesView Modulo="Cargo" />
             </VerticalStackLayout>

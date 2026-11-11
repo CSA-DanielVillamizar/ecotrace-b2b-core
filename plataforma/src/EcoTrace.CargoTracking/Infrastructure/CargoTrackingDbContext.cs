@@ -19,8 +19,8 @@ public sealed class CargoTrackingDbContext(DbContextOptions<CargoTrackingDbConte
     public DbSet<OutboxMensaje> Outbox => Set<OutboxMensaje>();
 
     /// <summary>
-    /// Operaciones de la app del conductor que el servidor ya procesó (Trabajo 3, ADR 0005). Se consulta por
-    /// el OperationId que llega en el encabezado Idempotency-Key, para que un reintento no repita el efecto.
+    /// La tabla de operaciones del teléfono que ya se procesaron (Trabajo 3, ADR 0005). Se consulta por el número que llega
+    /// en <c>Idempotency-Key</c>, para que un reintento no repita el efecto.
     /// </summary>
     public DbSet<OperacionProcesada> OperacionesProcesadas => Set<OperacionProcesada>();
 

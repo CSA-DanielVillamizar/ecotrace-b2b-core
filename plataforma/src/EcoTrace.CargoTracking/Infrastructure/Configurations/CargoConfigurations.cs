@@ -95,29 +95,30 @@ internal sealed class OutboxMensajeConfiguration : IEntityTypeConfiguration<Outb
 }
 
 /// <summary>
-/// Tabla OperacionesProcesadas (Trabajo 3, ADR 0005): recuerda qué operaciones de la app ya se procesaron,
-/// para que un reintento con el mismo OperationId no repita el efecto.
+/// Le explica a la base de datos cómo guardar los apuntes de operaciones ya procesadas: la tabla
+/// <c>OperacionesProcesadas</c> (Trabajo 3, ADR 0005). Sirve para que un reintento con el mismo número no repita el efecto.
 /// </summary>
 internal sealed class OperacionProcesadaConfiguration : IEntityTypeConfiguration<OperacionProcesada>
 {
+    /// <summary>Define el nombre de la tabla, su llave, sus columnas y su relación con la carga.</summary>
     public void Configure(EntityTypeBuilder<OperacionProcesada> builder)
     {
         builder.ToTable("OperacionesProcesadas");
 
-        // La clave primaria ES el OperationId. Esto es lo que da la garantía real: si dos solicitudes con
-        // la misma clave llegan al mismo tiempo, la base de datos deja pasar solo una. La lectura previa
-        // del controlador es una comodidad; esta restricción es la protección que no se puede saltar.
+        // La llave de la tabla ES el número de la operación. Esa es la protección de verdad: si dos solicitudes con
+        // el mismo número llegan al mismo tiempo, la base de datos deja pasar solo una. Lo que revisa el controlador
+        // antes es solo una comodidad; esta regla de la base de datos es la que no se puede saltar.
         builder.HasKey(o => o.OperacionId);
         builder.Property(o => o.OperacionId).ValueGeneratedNever();
 
-        // El resultado es el JSON de la respuesta de la primera vez. No lleva largo máximo porque crece
-        // con la cantidad de seguimientos de la carga (SQLite guarda texto sin límite fijo).
+        // El resultado es la respuesta de la primera vez, en texto. No tiene largo máximo porque crece
+        // con la cantidad de seguimientos de la carga.
         builder.Property(o => o.Resultado).IsRequired();
         builder.Property(o => o.ProcesadaEn).IsRequired();
 
-        // Relación interna: la operación pertenece a una carga de este mismo contexto. Se declara como clave
-        // foránea (sin propiedad de navegación) porque la regla de arquitectura exige que todo identificador
-        // sea clave propia, clave foránea interna o una referencia externa declarada. Este es el segundo caso.
+        // La operación pertenece a una carga de este mismo módulo, así que se une con una llave foránea (la columna
+        // CargaId apunta a la tabla Cargas). La prueba de arquitectura lo exige: todo identificador debe ser la llave
+        // de la tabla, una llave foránea interna, o una referencia a otro módulo declarada. Este es el segundo caso.
         builder.HasOne<Carga>()
             .WithMany()
             .HasForeignKey(o => o.CargaId)

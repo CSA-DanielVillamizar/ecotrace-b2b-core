@@ -2,27 +2,36 @@ using EcoTrace.Mobile.Core.Cola;
 
 namespace EcoTrace.App.Modulos.Cargo;
 
-/// <summary>Resultado de intentar guardar una acción del conductor. <see cref="Mensaje"/> se le muestra tal cual.</summary>
+/// <summary>Cómo terminó el intento de guardar una acción del conductor. El mensaje se le muestra tal cual.</summary>
 public sealed record ResultadoDeAccion(bool Exito, string Mensaje);
 
 /// <summary>
-/// Lo que el conductor puede hacer con una carga. Cada acción se guarda en la cola local <b>antes de tocar la red</b>
-/// (paso 1 de la regla de oro del ADR 0005); el motor de sincronización la envía después, en orden. El OperationId
-/// nace aquí, en el teléfono, al guardar: por eso un reintento tras un corte reenvía la misma clave y el servidor
-/// no repite el efecto.
+/// Lo que el conductor puede hacer con una carga. Cada acción se guarda en la cola local <b>antes de tocar la red</b> (paso 1
+/// de la regla de oro del ADR 0005), y el motor de sincronización la envía después, en orden.
+/// <para>
+/// El número de la operación (<c>OperationId</c>) nace aquí, en el teléfono, al guardar. Por eso un reintento después de un
+/// corte reenvía el mismo número y el servidor no repite el efecto.
+/// </para>
 /// </summary>
+/// <param name="servicio">Sirve para saber qué estado está viendo el conductor.</param>
+/// <param name="cola">La cola donde se guardan las acciones.</param>
 public sealed class AccionesDeCarga(ServicioDeCargas servicio, IColaLocal cola)
 {
-    /// <summary>Largo máximo de la nota. Es el mismo límite del servidor, para no mandar algo que va a rechazar.</summary>
+    /// <summary>El largo máximo de la nota. Es el mismo límite del servidor, para no mandar algo que va a rechazar.</summary>
     public const int NotaMaxima = 300;
 
     // Revisar el estado y guardar la acción tiene que ser una sola operación: si el conductor toca dos veces seguidas
     // "Confirmar entrega", la segunda ya debe ver el estado nuevo y no encolar una entrega repetida.
+    /// <summary>
+    /// Un candado: revisar el estado y guardar la acción tiene que ser una sola operación. Si el conductor toca dos veces seguidas
+    /// «Confirmar entrega», la segunda ya debe ver el estado nuevo y no guardar una entrega repetida.
+    /// </summary>
     private readonly SemaphoreSlim _candado = new(1, 1);
 
     /// <summary>
-    /// Pasa la carga a <paramref name="nuevoEstado"/>. Si es la entrega, se encola <c>ConfirmarEntrega</c> (la acción
-    /// que dispara el Saga de pago); si no, <c>CambiarEstado</c>.
+    /// Guarda en la cola el cambio de estado de una carga. Antes revisa que se pueda: que la carga esté en la lista, que el
+    /// cambio sea válido desde el estado que el conductor ve, que una novedad lleve nota y que la nota no sea demasiado larga.
+    /// Si el nuevo estado es Entregado guarda <c>ConfirmarEntrega</c> (la acción que dispara el pago); si no, <c>CambiarEstado</c>.
     /// </summary>
     public async Task<ResultadoDeAccion> CambiarEstadoAsync(
         Guid cargaId, string nuevoEstado, string? nota = null, CancellationToken ct = default)
@@ -68,11 +77,12 @@ public sealed class AccionesDeCarga(ServicioDeCargas servicio, IColaLocal cola)
     }
 
     /// <summary>
-    /// El servidor exige una ubicación de 2 a 120 caracteres. La app no usa GPS todavía: la entrega se registra en
-    /// el destino de la carga y los demás cambios, "en ruta".
+    /// El servidor exige una ubicación de 2 a 120 caracteres. La app todavía no usa GPS: al entregar se usa el destino de la
+    /// carga, y en los demás cambios, «En ruta».
     /// </summary>
     private static string UbicacionPara(CargaVista carga, string nuevoEstado) =>
         nuevoEstado == EstadosDeCarga.Entregado ? carga.Destino : "En ruta";
 
+    /// <summary>Arma el resultado para cuando la acción no se pudo guardar.</summary>
     private static ResultadoDeAccion Falla(string mensaje) => new(false, mensaje);
 }
