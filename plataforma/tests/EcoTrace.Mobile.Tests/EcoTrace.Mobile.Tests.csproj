@@ -23,6 +23,7 @@
   <ItemGroup>
     <Compile Include="..\..\src\EcoTrace.App\Modulos\Identity\Logica\*.cs" LinkBase="IdentityLogica" />
     <Compile Include="..\..\src\EcoTrace.App\Modulos\Fleet\Logica\*.cs" LinkBase="FleetLogica" />
+    <Compile Include="..\..\src\EcoTrace.App\Modulos\Cargo\Logica\*.cs" LinkBase="CargoLogica" />
   </ItemGroup>
 
   <ItemGroup>

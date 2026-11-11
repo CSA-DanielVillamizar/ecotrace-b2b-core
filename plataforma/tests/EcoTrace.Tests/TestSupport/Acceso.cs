@@ -29,11 +29,7 @@ public static class Acceso
     public static SigningCredentials CredencialesDeIdentity { get; } =
         new(new RsaSecurityKey(ClaveDePrueba.ExportParameters(true)), SecurityAlgorithms.RsaSha256);
 
-    public static HttpClient ConToken(this HttpClient cliente, string token)
-    {
-        cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return cliente;
-    }
+    // ConToken(HttpClient, string) vive en ClientesConToken (SeguridadDePrueba.cs): es la misma operación para todos.
 
     public static async Task<Respuesta> IniciarSesionAsync(this HttpClient identity, string email, string password) =>
         await identity.PostearAsync("/api/auth/login", new { email, password });

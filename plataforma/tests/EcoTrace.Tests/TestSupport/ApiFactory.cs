@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EcoTrace.Tests.TestSupport;
 
@@ -13,6 +15,12 @@ public sealed class ApiFactory<TMarker> : WebApplicationFactory<TMarker>
 {
     private readonly string _archivoDb = Path.Combine(Path.GetTempPath(), $"ecotrace-prueba-{Guid.NewGuid():N}.db");
 
+    /// <summary>
+    /// El Identity de mentira de las pruebas: sirve la clave pública para comprobar firmas y entrega tokens de servicio.
+    /// Solo lo usa un módulo que valida tokens (hoy, Cargo &amp; Tracking); para los demás no cambia nada.
+    /// </summary>
+    public IdentityFalso IdentityDeMentira { get; } = new();
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:Default", $"Data Source={_archivoDb}");
@@ -21,6 +29,19 @@ public sealed class ApiFactory<TMarker> : WebApplicationFactory<TMarker>
         // Identity firma con una clave de la corrida, recibida por configuración como en producción.
         // Los demás servicios ignoran esta clave.
         builder.UseSetting("Jwt:ClavePrivadaPem", Acceso.ClavePrivadaPem);
+
+        // Las pruebas de Cargo & Tracking validan contra un Identity de mentira, con su propio emisor y su propio
+        // cliente de servicio. Solo se aplica a Cargo: Identity, Fleet y Billing leen las mismas claves de
+        // configuración (Jwt:Emisor, Identity:ClientId) y usan las de desarrollo con el Identity real de la prueba.
+        if (typeof(TMarker) == typeof(CargoTrackingApiMarker))
+        {
+            SeguridadDePrueba.Configurar(builder);
+            builder.ConfigureTestServices(servicios =>
+            {
+                servicios.AddHttpClient(SeguridadDePrueba.ClienteJwks).ConfigurePrimaryHttpMessageHandler(() => IdentityDeMentira);
+                servicios.AddHttpClient(SeguridadDePrueba.ClienteToken).ConfigurePrimaryHttpMessageHandler(() => IdentityDeMentira);
+            });
+        }
     }
 
     protected override void Dispose(bool disposing)

@@ -40,7 +40,8 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
         var fleet = _fleet.WithWebHostBuilder(b => b.ConfigureTestServices(servicios =>
                 servicios.AddHttpClient(SeguridadFleet.ClienteJwks).ConfigurePrimaryHttpMessageHandler(() => _identity.Server.CreateHandler())))
             .CreateClient();
-        var cargo = _cargo.CreateClient();
+        // Cargo exige un token: este cliente llama como la persona correcta para cada ruta (ver ActorAutomatico).
+        var cargo = _cargo.CreateDefaultClient(new ActorAutomatico());
         // Billing también valida el token con la clave pública de este Identity (Trabajo 3).
         var billing = _billing.WithWebHostBuilder(b => b.ConfigureTestServices(servicios =>
                 servicios.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>

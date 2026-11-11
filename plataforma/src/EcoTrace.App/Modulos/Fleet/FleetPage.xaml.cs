@@ -43,6 +43,11 @@ public partial class FleetPage : ContentPage
         {
             await _modelo.ReportarAsync();
         }
+        catch (InvalidOperationException ex)
+        {
+            // La sesión no permite encolar ahora: su mensaje dice qué hacer (iniciar sesión o desbloquear con huella o PIN).
+            await DisplayAlert("No se guardó la novedad", ex.Message, "Entendido");
+        }
         catch (Exception)
         {
             // Si la novedad alcanzó a guardarse, sigue en la cola y el motor la envía después.

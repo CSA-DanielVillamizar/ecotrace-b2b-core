@@ -130,7 +130,7 @@ public sealed class Ecosistema : IAsyncDisposable
         ClienteIdentity = Identity.CreateClient();
         ClienteIdentityComoBilling = Identity.CreateClient();
         ClienteFleet = Fleet.CreateClient();
-        ClienteCargo = Cargo.CreateClient();
+        ClienteCargo = Cargo.CreateDefaultClient(new ActorAutomatico());
         ClienteBilling = Billing.CreateClient();
     }
 
@@ -151,6 +151,10 @@ public sealed class Ecosistema : IAsyncDisposable
     /// <summary>Fleet con token de servicio de Billing: reserva, libera y consulta recursos como lo hace el Saga.</summary>
     public HttpClient ClienteFleet { get; }
 
+    /// <summary>
+    /// Llama a Cargo &amp; Tracking como la persona correcta para cada ruta (ver <see cref="ActorAutomatico"/>), porque Cargo
+    /// exige un token válido de la organización que corresponde.
+    /// </summary>
     public HttpClient ClienteCargo { get; }
 
     public HttpClient ClienteBilling { get; }
@@ -163,6 +167,9 @@ public sealed class Ecosistema : IAsyncDisposable
 
     /// <summary>Cable de Cargo &amp; Tracking hacia Billing (publicar EntregaConfirmada).</summary>
     public EnlaceDeRed BillingDesdeCargo { get; }
+
+    /// <summary>El Identity de mentira que Cargo consulta: su clave pública y los tokens de servicio que le entrega.</summary>
+    public IdentityFalso IdentityDeCargo => _cargoBase.IdentityDeMentira;
 
     public SimulacionFallos FallosDeFleet => Fleet.Services.GetRequiredService<SimulacionFallos>();
 

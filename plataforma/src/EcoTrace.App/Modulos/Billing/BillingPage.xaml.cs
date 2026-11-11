@@ -28,7 +28,16 @@ public partial class BillingPage : ContentPage
             return;
         }
 
-        await _modulo.EncolarEvidenciaAsync(pagoId, textoEvidencia);
+        try
+        {
+            await _modulo.EncolarEvidenciaAsync(pagoId, textoEvidencia);
+        }
+        catch (InvalidOperationException ex)
+        {
+            // La sesión no permite encolar ahora (sin sesión, o sin conexión y sin desbloquear): el mensaje dice qué hacer.
+            await DisplayAlert("No se guardó la evidencia", ex.Message, "Entendido");
+            return;
+        }
 
         PagoIdEntry.Text = string.Empty;
         EvidenciaEditor.Text = string.Empty;
