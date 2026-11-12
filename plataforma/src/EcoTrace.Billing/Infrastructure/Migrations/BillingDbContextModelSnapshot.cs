@@ -104,6 +104,37 @@ namespace EcoTrace.Billing.Infrastructure.Migrations
                     b.ToTable("Facturas", (string)null);
                 });
 
+            modelBuilder.Entity("EcoTrace.Billing.Domain.OperacionPago", b =>
+                {
+                    b.Property<Guid>("OperacionPagoId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreadaEn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Operacion")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PagoId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("OperacionPagoId");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique();
+
+                    b.HasIndex("PagoId");
+
+                    b.ToTable("OperacionesPago", (string)null);
+                });
+
             modelBuilder.Entity("EcoTrace.Billing.Domain.Pago", b =>
                 {
                     b.Property<Guid>("PagoId")
@@ -259,6 +290,15 @@ namespace EcoTrace.Billing.Infrastructure.Migrations
                 {
                     b.HasOne("EcoTrace.Billing.Domain.Pago", null)
                         .WithMany("Auditoria")
+                        .HasForeignKey("PagoId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("EcoTrace.Billing.Domain.OperacionPago", b =>
+                {
+                    b.HasOne("EcoTrace.Billing.Domain.Pago", null)
+                        .WithMany()
                         .HasForeignKey("PagoId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();

@@ -3,9 +3,18 @@ using EcoTrace.Tests.TestSupport;
 
 namespace EcoTrace.Tests;
 
-public sealed class IdentityApiTests(ApiFactory<IdentityApiMarker> fabrica) : IClassFixture<ApiFactory<IdentityApiMarker>>
+public sealed class IdentityApiTests(ApiFactory<IdentityApiMarker> fabrica)
+    : IClassFixture<ApiFactory<IdentityApiMarker>>, IAsyncLifetime
 {
-    private readonly HttpClient _cliente = fabrica.CreateClient();
+    private HttpClient _cliente = null!;
+
+    public async Task InitializeAsync() => _cliente = await Acceso.ClienteAdministradorAsync(fabrica.CreateClient);
+
+    public Task DisposeAsync()
+    {
+        _cliente.Dispose();
+        return Task.CompletedTask;
+    }
 
     [Fact]
     public async Task La_migracion_siembra_los_cuatro_roles_del_adr()

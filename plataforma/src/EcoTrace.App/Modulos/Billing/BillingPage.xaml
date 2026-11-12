@@ -12,11 +12,32 @@
                                       Subtitulo="Aquí ves cuándo se libera el dinero de una entrega." />
 
             <VerticalStackLayout Padding="16,18,16,24" Spacing="14">
-                <!-- Esqueleto: el escuadron reemplaza esta tarjeta por sus pantallas reales. -->
-                <controles:GuiaDelModuloView />
+
+                <Border Style="{StaticResource Tarjeta}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Registrar evidencia de entrega" Style="{StaticResource Seccion}" />
+                        <Label Text="Adjunta la remisión o soporte de entrega para respaldar el pago en custodia. Si estás sin conexión, se sincronizará automáticamente al recuperar señal."
+                               Style="{StaticResource Apoyo}" />
+
+                        <Label Text="ID DEL PAGO" Style="{StaticResource Etiqueta}" Margin="0,8,0,0" />
+                        <Entry x:Name="PagoIdEntry"
+                               Placeholder="Ej: 3fa85f64-5717-4562-b3fc-2c963f66afa6" />
+
+                        <Label Text="EVIDENCIA O REMISIÓN" Style="{StaticResource Etiqueta}" Margin="0,8,0,0" />
+                        <Editor x:Name="EvidenciaEditor"
+                                Placeholder="Ej: Remisión física firmada #98765 por bodega"
+                                HeightRequest="80" />
+
+                        <Button Text="Guardar evidencia (encolar)"
+                                Style="{StaticResource Primario}"
+                                Clicked="OnGuardarEvidenciaClicked"
+                                Margin="0,12,0,0" />
+                    </VerticalStackLayout>
+                </Border>
 
                 <Label Text="Acciones de este módulo" Style="{StaticResource Seccion}" Margin="0,6,0,0" />
                 <controles:ListaOperacionesView Modulo="Billing" />
+
             </VerticalStackLayout>
 
         </VerticalStackLayout>

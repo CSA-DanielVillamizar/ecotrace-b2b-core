@@ -1,11 +1,34 @@
 using System.Net;
+using EcoTrace.Billing.Api;
 using EcoTrace.Tests.TestSupport;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EcoTrace.Tests;
 
-public sealed class BillingApiTests(ApiFactory<BillingApiMarker> fabrica) : IClassFixture<ApiFactory<BillingApiMarker>>
+public sealed class BillingApiTests : IClassFixture<ApiFactory<BillingApiMarker>>
 {
-    private readonly HttpClient _cliente = fabrica.CreateClient();
+    private readonly HttpClient _cliente;
+
+    public BillingApiTests(ApiFactory<BillingApiMarker> fabrica)
+    {
+        var tokenOperador = Acceso.Forjar(
+            tenantId: Acceso.OperadorTenantId,
+            rol: "Administrador",
+            audiencias: ["ecotrace-billing"]);
+
+        _cliente = fabrica.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(servicios =>
+            {
+                servicios.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
+                {
+                    o.ConfigurationManager = null;
+                    o.TokenValidationParameters.IssuerSigningKey = Acceso.CredencialesDeIdentity.Key;
+                });
+            });
+        }).CreateClient().ConToken(tokenOperador);
+    }
 
     // Billing tampoco consulta a Cargo & Tracking: cualquier CargaId sirve para crear el pago.
     private static object NuevoPago(Guid? cargaId = null, decimal monto = 850_000m) => new

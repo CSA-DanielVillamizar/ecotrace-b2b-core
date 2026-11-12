@@ -15,6 +15,7 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(u => u.Email).HasMaxLength(200).IsRequired();
         builder.HasIndex(u => u.Email).IsUnique();
         builder.Property(u => u.CreadoEn).IsRequired();
+        builder.Property(u => u.ContrasenaHash).HasMaxLength(200);
 
         // Claves foraneas reales: Tenant y Role pertenecen a este mismo Bounded Context.
         builder.HasOne(u => u.Tenant)
@@ -26,5 +27,21 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .WithMany()
             .HasForeignKey(u => u.RoleId)
             .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class TokenRefrescoConfiguration : IEntityTypeConfiguration<TokenRefresco>
+{
+    public void Configure(EntityTypeBuilder<TokenRefresco> builder)
+    {
+        builder.ToTable("TokensRefresco");
+        builder.HasKey(t => t.TokenRefrescoId);
+        builder.Property(t => t.TokenRefrescoId).ValueGeneratedNever();
+        builder.Property(t => t.Hash).HasMaxLength(64).IsRequired();
+        builder.HasIndex(t => t.Hash).IsUnique();
+        builder.Property(t => t.CreadoEn).IsRequired();
+        builder.Property(t => t.ExpiraEn).IsRequired();
+
+        builder.HasOne<User>().WithMany().HasForeignKey(t => t.UserId).OnDelete(DeleteBehavior.Cascade);
     }
 }
