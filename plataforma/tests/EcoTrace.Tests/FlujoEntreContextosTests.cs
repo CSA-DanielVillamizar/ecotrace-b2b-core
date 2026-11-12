@@ -30,7 +30,7 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
     {
         var identity = _identity.CreateClient();
         var fleet = _fleet.CreateClient();
-        var cargo = _cargo.CreateClient();
+        var cargo = _cargo.CreateDefaultClient(new ActorAutomatico());
         var billing = _billing.CreateClient();
 
         // 1. Identity emite los identificadores base.
