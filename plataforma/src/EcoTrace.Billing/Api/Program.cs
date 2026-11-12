@@ -53,17 +53,21 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy("CrearPago", p => p.RequireRole("Administrador", "Servicio"))
     .AddPolicy("Lectura", p => p.RequireAuthenticatedUser().RequireClaim("tenant_id"));
 
+builder.AddTokenDeServicio();
+
 // Clientes hacia Identity y Fleet Management, los servicios que el Saga necesita. Las direcciones salen
 // de la configuracion (localhost en local, el nombre del servicio en Docker). El tiempo maximo por
 // intento lo controla ServiciosExternos con su propio cancelador, por eso el del cliente queda abierto.
-foreach (var (nombre, puertoLocal) in new[] { (ServiciosExternos.Identity, 5101), (ServiciosExternos.Fleet, 5102) })
+foreach (var (nombre, puertoLocal, audiencia) in new[] {
+    (ServiciosExternos.Identity, 5101, "ecotrace-identity"),
+    (ServiciosExternos.Fleet, 5102, "ecotrace-fleet") })
 {
     builder.Services.AddHttpClient(nombre, (proveedor, cliente) =>
     {
         var configuracion = proveedor.GetRequiredService<IConfiguration>();
         cliente.BaseAddress = new Uri(configuracion[$"Servicios:{nombre}:BaseUrl"] ?? $"http://localhost:{puertoLocal}");
         cliente.Timeout = Timeout.InfiniteTimeSpan;
-    });
+    }).ConTokenDeServicio(audiencia);
 }
 
 builder.Services.AddSingleton<ServiciosExternos>();

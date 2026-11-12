@@ -1,5 +1,8 @@
 using System.Net;
 using EcoTrace.Tests.TestSupport;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EcoTrace.Tests;
 
@@ -29,9 +32,17 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
     public async Task Del_alta_de_organizaciones_a_la_liberacion_del_pago_solo_con_identificadores()
     {
         var identity = await Acceso.ClienteAdministradorAsync(_identity.CreateClient);
+        var tokenAdmin = await identity.TokenAdministradorAsync();
         var fleet = _fleet.CreateClient();
         var cargo = _cargo.CreateClient();
-        var billing = _billing.CreateClient();
+        var billing = _billing.WithWebHostBuilder(b => b.ConfigureTestServices(s =>
+        {
+            s.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
+            {
+                o.ConfigurationManager = null;
+                o.TokenValidationParameters.IssuerSigningKey = Acceso.CredencialesDeIdentity.Key;
+            });
+        })).CreateClient().ConToken(tokenAdmin);
 
         // 1. Identity emite los identificadores base.
         var generador = await identity.PostearAsync("/api/tenants", new { nombre = "Generadora del Valle S.A.", tenantType = "Generador" });

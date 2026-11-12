@@ -1,8 +1,10 @@
 using System.Collections.Concurrent;
 using System.Net;
 using EcoTrace.Billing.Api.Saga;
+using EcoTrace.Billing.Api.Seguridad;
 using EcoTrace.CargoTracking.Api.Outbox;
 using EcoTrace.FleetManagement.Api.Extensions;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -93,7 +95,14 @@ public sealed class Ecosistema : IAsyncDisposable
             b.UseSetting("Resiliencia:Identity:TimeoutMs", opciones.TimeoutIdentityMs.ToString());
             b.ConfigureTestServices(servicios =>
             {
-                // Billing llama a Identity con token de servicio (Trabajo 3): sin él, la ruta interna responde 401.
+                servicios.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
+                {
+                    o.ConfigurationManager = null;
+                    o.TokenValidationParameters.IssuerSigningKey = Acceso.CredencialesDeIdentity.Key;
+                });
+
+                // Billing pide su token de servicio directamente a Identity (sin pasar por el cable simulado de negocio).
+                servicios.AddHttpClient(ProveedorDeTokenDeServicio.ClienteToken).ConfigurePrimaryHttpMessageHandler(() => Identity.Server.CreateHandler());
                 servicios.AddHttpClient(ServiciosExternos.Identity)
                     .ConfigurePrimaryHttpMessageHandler(() => IdentityDesdeBilling)
                     .AddHttpMessageHandler(() => new TokenDeServicioHandler(
@@ -164,7 +173,9 @@ public sealed class Ecosistema : IAsyncDisposable
             (await cliente.GetAsync("/health")).EnsureSuccessStatusCode();
         }
 
-        ecosistema.ClienteIdentity.ConToken(await ecosistema.ClienteIdentity.TokenAdministradorAsync());
+        var tokenAdmin = await ecosistema.ClienteIdentity.TokenAdministradorAsync();
+        ecosistema.ClienteIdentity.ConToken(tokenAdmin);
+        ecosistema.ClienteBilling.ConToken(tokenAdmin);
         ecosistema.ClienteIdentityComoBilling.ConToken(await ecosistema.ClienteIdentityComoBilling.TokenServicioAsync(
             "billing", Acceso.SecretoBilling, "ecotrace-identity"));
 
