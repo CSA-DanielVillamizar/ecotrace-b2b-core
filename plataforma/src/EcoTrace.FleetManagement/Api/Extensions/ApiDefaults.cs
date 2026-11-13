@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -22,7 +23,11 @@ public static class ApiDefaults
         this WebApplicationBuilder builder, string servicio, string archivoDb)
         where TContext : DbContext
     {
-        builder.Host.UseSerilog((_, configuracion) => configuracion
+        // ReadFrom.Services: las pruebas pueden leer lo que se registra.
+        // preserveStaticLogger: cada servicio escribe en su propio registro. En las pruebas corren varios
+        // servicios juntos y así no se mezclan.
+        builder.Host.UseSerilog(preserveStaticLogger: true, configureLogger: (_, servicios, configuracion) => configuracion
+            .ReadFrom.Services(servicios)
             .MinimumLevel.Information()
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
@@ -104,7 +109,8 @@ public static class ApiDefaults
             }
         });
 
-        app.UseSerilogRequestLogging();
+        // Registros seguros (ADR 0006): una línea por solicitud con los campos pedidos y sin datos sensibles.
+        app.UseMiddleware<RegistroDeSolicitudes>();
         app.UseExceptionHandler();
         app.UseStatusCodePages();
         app.UseCors(PoliticaCors);
@@ -140,6 +146,19 @@ public static class ApiDefaults
             .WithName("Contexto")
             .WithSummary("Describe las entidades del contexto y sus referencias externas por ID.");
 
+        // Capa 1 del release (ADR 0006): permite preguntarle al servicio en qué entorno corre de verdad,
+        // en vez de confiar en la configuración del cliente. Es público y no expone datos de nadie.
+        var version = typeof(ApiDefaults).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "sin versión";
+        app.MapGet("/api/_meta/entorno", (IHostEnvironment entorno) => new
+            {
+                servicio,
+                entorno = entorno.IsProduction() ? "produccion" : "desarrollo",
+                version
+            })
+            .WithName("Entorno")
+            .WithSummary("Dice en qué entorno corre el servicio y qué versión es.");
+
         return app;
     }
 
@@ -151,8 +170,9 @@ public static class ApiDefaults
             return explicita;
         }
 
+        // Producción usa otro archivo (Database:Archivo) para que los dos entornos nunca compartan datos.
         var carpeta = Path.Combine(entorno.ContentRootPath, "App_Data");
         Directory.CreateDirectory(carpeta);
-        return $"Data Source={Path.Combine(carpeta, archivoDb)}";
+        return $"Data Source={Path.Combine(carpeta, configuracion["Database:Archivo"] ?? archivoDb)}";
     }
 }

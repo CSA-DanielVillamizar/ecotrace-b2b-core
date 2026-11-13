@@ -3,16 +3,11 @@ using EcoTrace.FleetManagement.Domain;
 
 namespace EcoTrace.FleetManagement.Api.Contracts;
 
+/// <summary>
+/// Datos de un conductor nuevo. La organización y quién lo registra no van aquí: salen del token (Trabajo 3).
+/// </summary>
 public sealed record CrearConductorRequest
 {
-    /// <summary>Transportista dueño de la flota (TenantId emitido por Identity).</summary>
-    [Required]
-    public Guid? TenantId { get; init; }
-
-    /// <summary>Usuario de Identity que realiza el registro.</summary>
-    [Required]
-    public Guid? RegistradoPorUserId { get; init; }
-
     /// <summary>Cuenta de usuario del propio conductor, si ya existe.</summary>
     public Guid? UserId { get; init; }
 
@@ -32,14 +27,18 @@ public sealed record ConductorResponse(
             c.Estado, c.ReservadoParaCargaId);
 }
 
+/// <summary>
+/// Lo que la app del conductor guarda en caché: su registro de conductor y, si tiene una carga asignada,
+/// el vehículo reservado para esa misma carga. Vehículo y CargaId son null mientras no tenga carga.
+/// </summary>
+public sealed record AsignacionDelConductorResponse(
+    ConductorResponse Conductor, VehiculoResponse? Vehiculo, Guid? CargaId);
+
+/// <summary>
+/// Datos de un vehículo nuevo. La organización y quién lo registra no van aquí: salen del token (Trabajo 3).
+/// </summary>
 public sealed record CrearVehiculoRequest
 {
-    [Required]
-    public Guid? TenantId { get; init; }
-
-    [Required]
-    public Guid? RegistradoPorUserId { get; init; }
-
     [Required]
     public string? Placa { get; init; }
 
@@ -54,6 +53,32 @@ public sealed record VehiculoResponse(
     public static VehiculoResponse De(Vehiculo v) =>
         new(v.VehiculoId, v.TenantId, v.RegistradoPorUserId, v.Placa, v.CapacidadKg, v.CreadoEn,
             v.Estado, v.ReservadoParaCargaId);
+}
+
+/// <summary>Una novedad del vehículo, tal como la envía la app del conductor.</summary>
+public sealed record ReportarNovedadRequest
+{
+    [Required]
+    public TipoNovedad? Tipo { get; init; }
+
+    [Required]
+    public string? Descripcion { get; init; }
+
+    /// <summary>Cuándo ocurrió, con la hora del teléfono. Puede ser horas antes si se reportó sin señal.</summary>
+    [Required]
+    public DateTimeOffset? OcurridaEn { get; init; }
+
+    /// <summary>La carga que la app tenía en caché al reportar (de GET /api/conductores/yo), si había una.</summary>
+    public Guid? CargaId { get; init; }
+}
+
+public sealed record NovedadResponse(
+    Guid NovedadId, Guid VehiculoId, Guid TenantId, Guid ReportadaPorUserId, Guid? CargaId,
+    TipoNovedad Tipo, string Descripcion, DateTime OcurridaEn, DateTime RecibidaEn)
+{
+    public static NovedadResponse De(Novedad n) =>
+        new(n.NovedadId, n.VehiculoId, n.TenantId, n.ReportadaPorUserId, n.CargaId,
+            n.Tipo, n.Descripcion, n.OcurridaEn, n.RecibidaEn);
 }
 
 /// <summary>Cuerpo común de reservar y liberar: la carga y los dos recursos que se mueven juntos.</summary>

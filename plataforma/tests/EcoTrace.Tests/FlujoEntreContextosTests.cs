@@ -1,5 +1,8 @@
 using System.Net;
+using EcoTrace.FleetManagement.Api.Seguridad;
 using EcoTrace.Tests.TestSupport;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace EcoTrace.Tests;
 
@@ -28,40 +31,44 @@ public sealed class FlujoEntreContextosTests : IAsyncLifetime
     [Fact]
     public async Task Del_alta_de_organizaciones_a_la_liberacion_del_pago_solo_con_identificadores()
     {
-        var identity = _identity.CreateClient();
-        var fleet = _fleet.CreateClient();
+        var identity = await Acceso.ClienteAdministradorAsync(_identity.CreateClient);
+        // Fleet valida el token con la clave pública que publica este Identity (Trabajo 3).
+        var fleet = _fleet.WithWebHostBuilder(b => b.ConfigureTestServices(servicios =>
+                servicios.AddHttpClient(SeguridadFleet.ClienteJwks).ConfigurePrimaryHttpMessageHandler(() => _identity.Server.CreateHandler())))
+            .CreateClient();
         var cargo = _cargo.CreateClient();
         var billing = _billing.CreateClient();
 
         // 1. Identity emite los identificadores base.
         var generador = await identity.PostearAsync("/api/tenants", new { nombre = "Generadora del Valle S.A.", tenantType = "Generador" });
         var transportista = await identity.PostearAsync("/api/tenants", new { nombre = "Transportes del Cauca", tenantType = "Transportista" });
-        var supervisor = await identity.PostearAsync("/api/users", new
+        var emailSupervisor = $"marta.{Guid.NewGuid():N}@transportescauca.co";
+        await identity.PostearAsync("/api/users", new
         {
             tenantId = transportista.Id("tenantId"),
             role = "Supervisor",
             nombre = "Marta Ríos",
-            email = $"marta.{Guid.NewGuid():N}@transportescauca.co"
+            email = emailSupervisor,
+            password = "Supervisor-2026"
         });
         var generadorId = generador.Id("tenantId");
         var transportistaId = transportista.Id("tenantId");
-        var supervisorId = supervisor.Id("userId");
 
-        // Identity deja de existir. Los otros tres contextos siguen operando: no dependen de el
-        // en tiempo de ejecucion, solo guardan los identificadores que recibieron.
+        // La supervisora inicia sesión y Fleet descarga la clave pública de Identity con su primera solicitud.
+        fleet.ConToken(await identity.TokenDeAsync(emailSupervisor, "Supervisor-2026"));
+        Assert.Equal(HttpStatusCode.OK, (await fleet.ConsultarAsync("/api/vehiculos")).Estado);
+
+        // Identity deja de existir. Los otros tres contextos siguen operando: solo guardan los identificadores
+        // que recibieron, y Fleet valida el token con la clave que ya tiene en memoria, sin volver a Identity.
         await _identity.DisposeAsync();
 
-        // 2. Fleet Management registra vehiculo y conductor del transportista.
-        var vehiculo = await fleet.PostearAsync("/api/vehiculos", new
-        {
-            tenantId = transportistaId, registradoPorUserId = supervisorId, placa = "WXY123", capacidadKg = 5000
-        });
-        var conductor = await fleet.PostearAsync("/api/conductores", new
-        {
-            tenantId = transportistaId, registradoPorUserId = supervisorId, nombre = "Carlos Ruiz", licencia = "C2-88213"
-        });
+        // 2. Fleet Management registra vehiculo y conductor del transportista. La organización y quién
+        //    registra salen del token de la supervisora.
+        var vehiculo = await fleet.PostearAsync("/api/vehiculos", new { placa = "WXY123", capacidadKg = 5000 });
+        var conductor = await fleet.PostearAsync("/api/conductores", new { nombre = "Carlos Ruiz", licencia = "C2-88213" });
         Assert.Equal(HttpStatusCode.Created, vehiculo.Estado);
         Assert.Equal(HttpStatusCode.Created, conductor.Estado);
+        Assert.Equal(transportistaId, vehiculo.Id("tenantId"));
 
         // 3. Cargo & Tracking crea la carga con los dos tenants y la asigna con IDs de Fleet.
         var carga = await cargo.PostearAsync("/api/cargas", new

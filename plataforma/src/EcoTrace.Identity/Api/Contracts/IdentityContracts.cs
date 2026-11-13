@@ -63,6 +63,9 @@ public sealed record CrearUserRequest
 
     [Required]
     public string? Email { get; init; }
+
+    /// <summary>Opcional. Sin contraseña el usuario existe pero no puede iniciar sesión.</summary>
+    public string? Password { get; init; }
 }
 
 public sealed record UserResponse(
