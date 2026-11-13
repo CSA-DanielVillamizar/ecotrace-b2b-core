@@ -23,7 +23,11 @@ public static class ApiDefaults
         this WebApplicationBuilder builder, string servicio, string archivoDb)
         where TContext : DbContext
     {
-        builder.Host.UseSerilog((_, configuracion) => configuracion
+        // ReadFrom.Services: las pruebas pueden leer lo que se registra.
+        // preserveStaticLogger: cada servicio escribe en su propio registro. En las pruebas corren varios
+        // servicios juntos y así no se mezclan.
+        builder.Host.UseSerilog(preserveStaticLogger: true, configureLogger: (_, servicios, configuracion) => configuracion
+            .ReadFrom.Services(servicios)
             .MinimumLevel.Information()
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
             .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
@@ -105,7 +109,8 @@ public static class ApiDefaults
             }
         });
 
-        app.UseSerilogRequestLogging();
+        // Registros seguros (ADR 0006): una línea por solicitud con los campos pedidos y sin datos sensibles.
+        app.UseMiddleware<RegistroDeSolicitudes>();
         app.UseExceptionHandler();
         app.UseStatusCodePages();
         app.UseCors(PoliticaCors);
