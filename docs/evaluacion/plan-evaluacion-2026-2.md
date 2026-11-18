@@ -15,7 +15,7 @@ Este plan continúa directamente el trabajo de las Clases 0-6: los 6 ADRs (`docs
 | 2 | [Trabajo 2](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/milestone/2) | Trabajo en equipo | 20% | ADR 0002/0003 | jue 1-oct-2026 |
 | 3 | [Examen 1](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/milestone/3) | Individual escrito | 20% | ADR 0001-0003 | mar 6-oct-2026 |
 | 4 | [Trabajo 3](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/milestone/4) | Capstone en equipo | 20% | ADR 0004/0005/0006 | jue 12-nov-2026 |
-| 5 | [Examen 2](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/milestone/5) | Individual solo escrito | 20% | Todo (0001-0006) | mar 24-nov-2026 |
+| 5 | [Examen 2](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/milestone/5) | Individual solo escrito | 20% | Todo (0001-0006) | jue 19-nov 8:00 p. m. a vie 20-nov-2026 8:00 a. m. |
 
 Issues de tracking: [#22](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/issues/22), [#23](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/issues/23), [#24](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/issues/24), [#25](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/issues/25), [#26](https://github.com/CSA-DanielVillamizar/ecotrace-b2b-core/issues/26).
 
