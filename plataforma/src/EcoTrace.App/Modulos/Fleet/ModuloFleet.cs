@@ -1,4 +1,5 @@
 using EcoTrace.Mobile.Core.Modulos;
+using EcoTrace.Mobile.Core.Sincronizacion;
 
 namespace EcoTrace.App.Modulos.Fleet;
 
@@ -8,6 +9,11 @@ namespace EcoTrace.App.Modulos.Fleet;
 /// </summary>
 public sealed class ModuloFleet : ModuloBase
 {
+    public ModuloFleet(ConfiguracionServicios servicios) =>
+        Manejadores = [new ReportarNovedadHandler(servicios)];
+
+    public override IReadOnlyList<IManejadorOperacion> Manejadores { get; }
+
     public override string Nombre => "Fleet";
 
     public override string Titulo => "Vehículo";

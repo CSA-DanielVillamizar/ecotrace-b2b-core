@@ -7,5 +7,11 @@ namespace EcoTrace.Identity.Domain;
 public enum TenantType
 {
     Generador = 1,
-    Transportista = 2
+    Transportista = 2,
+
+    /// <summary>
+    /// La organización que opera la plataforma (Trabajo 3). Hay una sola, se siembra al arrancar y no se
+    /// crea por la API. Su Administrador es el único que gestiona otras organizaciones.
+    /// </summary>
+    Operador = 3
 }

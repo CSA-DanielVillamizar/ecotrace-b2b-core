@@ -17,6 +17,10 @@ public sealed class ApiFactory<TMarker> : WebApplicationFactory<TMarker>
     {
         builder.UseSetting("ConnectionStrings:Default", $"Data Source={_archivoDb}");
         builder.UseSetting("Swagger:Habilitado", "false");
+
+        // Identity firma con una clave de la corrida, recibida por configuración como en producción.
+        // Los demás servicios ignoran esta clave.
+        builder.UseSetting("Jwt:ClavePrivadaPem", Acceso.ClavePrivadaPem);
     }
 
     protected override void Dispose(bool disposing)

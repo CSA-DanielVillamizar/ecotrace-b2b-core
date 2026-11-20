@@ -13,6 +13,8 @@ public sealed class FleetManagementDbContext(DbContextOptions<FleetManagementDbC
 
     public DbSet<Vehiculo> Vehiculos => Set<Vehiculo>();
 
+    public DbSet<Novedad> Novedades => Set<Novedad>();
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder.Properties<DateTime>().HaveConversion<UtcDateTimeConverter>();

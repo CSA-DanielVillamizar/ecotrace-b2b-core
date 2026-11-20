@@ -59,3 +59,32 @@ internal sealed class VehiculoConfiguration : IEntityTypeConfiguration<Vehiculo>
         builder.HasIndex(v => v.ReservadoParaCargaId);
     }
 }
+
+internal sealed class NovedadConfiguration : IEntityTypeConfiguration<Novedad>
+{
+    public void Configure(EntityTypeBuilder<Novedad> builder)
+    {
+        builder.ToTable("Novedades");
+        builder.HasKey(n => n.NovedadId);
+        builder.Property(n => n.NovedadId).ValueGeneratedNever();
+
+        // El vehículo es de este mismo contexto: relación real con clave foránea, sin propiedad de navegación.
+        builder.HasOne<Vehiculo>().WithMany().HasForeignKey(n => n.VehiculoId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(n => n.VehiculoId);
+
+        builder.Property(n => n.Tipo).HasConversion<string>().HasMaxLength(20).IsRequired();
+        builder.Property(n => n.Descripcion).HasMaxLength(Novedad.LargoMaximoDescripcion).IsRequired();
+        builder.Property(n => n.OcurridaEn).IsRequired();
+        builder.Property(n => n.RecibidaEn).IsRequired();
+
+        // Una acción de la app se procesa una sola vez: el índice único frena también dos reintentos simultáneos.
+        builder.Property(n => n.ClaveIdempotencia);
+        builder.HasIndex(n => n.ClaveIdempotencia).IsUnique();
+
+        // Referencias externas: columnas planas, sin FK.
+        builder.Property(n => n.TenantId).IsRequired();
+        builder.Property(n => n.ReportadaPorUserId).IsRequired();
+        builder.Property(n => n.CargaId);
+        builder.HasIndex(n => n.TenantId);
+    }
+}
